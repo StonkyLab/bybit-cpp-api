@@ -7,8 +7,8 @@ Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@gmail.com>.
 */
 
 #include "vk/bybit/v2/bybit_event_models_v2.h"
-#include "vk/tools/utils.h"
-#include "vk/tools/json_utils.h"
+#include "vk/utils/utils.h"
+#include "vk/utils/json_utils.h"
 
 namespace vk::bybit::v2 {
 

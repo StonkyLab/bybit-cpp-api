@@ -1,9 +1,9 @@
 #include "vk/bybit/bybit.h"
 #include "vk/bybit/v2/bybit_futures_rest_client_v2.h"
-#include "vk/tools/json_utils.h"
-#include "vk/tools/log_utils.h"
+#include "vk/utils/json_utils.h"
+#include "vk/utils/log_utils.h"
 #include "vk/bybit/v2/bybit_ws_stream_manager_v2.h"
-#include "vk/tools/utils.h"
+#include "vk/utils/utils.h"
 #include <memory>
 #include <filesystem>
 #include <iostream>

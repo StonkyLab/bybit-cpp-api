@@ -7,8 +7,8 @@ Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@gmail.com>.
 */
 
 #include "vk/bybit/bybit_http_session.h"
-#include "vk/tools/utils.h"
-#include "vk/tools/json_utils.h"
+#include "vk/utils/utils.h"
+#include "vk/utils/json_utils.h"
 #include "nlohmann/json.hpp"
 #include <boost/asio/ssl.hpp>
 #include <boost/beast/version.hpp>

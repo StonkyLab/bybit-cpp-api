@@ -10,7 +10,7 @@ Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@gmail.com>.
 #define INCLUDE_VK_BYBIT_EVENT_MODELS_V2_H
 
 #include <nlohmann/json.hpp>
-#include "vk/tools/i_json.h"
+#include "vk/interface/i_json.h"
 #include "vk/bybit/v2/bybit_event_models_v2.h"
 #include "vk/bybit/bybit_enums.h"
 

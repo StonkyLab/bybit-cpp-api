@@ -10,7 +10,7 @@ Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@gmail.com>.
 #define INCLUDE_VK_BYBIT_MODELS_V5_H
 
 #include "vk/bybit/bybit_enums.h"
-#include "vk/tools/i_json.h"
+#include "vk/interface/i_json.h"
 #include <nlohmann/json.hpp>
 
 namespace vk::bybit::v5 {

@@ -7,8 +7,8 @@ Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@gmail.com>.
 */
 
 #include "vk/bybit/v2/bybit_futures_ws_session_v2.h"
-#include "vk/tools/log_utils.h"
-#include "vk/tools/json_utils.h"
+#include "vk/utils/log_utils.h"
+#include "vk/utils/json_utils.h"
 #include <fmt/format.h>
 #include <nlohmann/json.hpp>
 #include <boost/asio/buffers_iterator.hpp>

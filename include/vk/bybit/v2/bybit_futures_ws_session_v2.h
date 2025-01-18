@@ -9,7 +9,7 @@ Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@gmail.com>.
 #ifndef INCLUDE_VK_BYBIT_WS_SESSION_V2_H
 #define INCLUDE_VK_BYBIT_WS_SESSION_V2_H
 
-#include "vk/tools//log_utils.h"
+#include "vk/utils/log_utils.h"
 #include "vk/bybit/v2/bybit_event_models_v2.h"
 #include <memory>
 #include <boost/asio/ip/tcp.hpp>

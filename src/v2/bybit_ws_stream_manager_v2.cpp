@@ -9,7 +9,7 @@ Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@gmail.com>.
 #include "vk/bybit/v2/bybit_futures_rest_client_v2.h"
 #include "vk/bybit/v2/bybit_ws_stream_manager_v2.h"
 #include "vk/bybit/v2/bybit_futures_ws_client_v2.h"
-#include "vk/tools/utils.h"
+#include "vk/utils/utils.h"
 #include <mutex>
 #include <fmt/format.h>
 #include <thread>

@@ -1,0 +1,3 @@
+[submodule "vk_cpp_common"]
+	path = vk_cpp_common
+	url = git@github.com:vitakot/vk_cpp_common.git

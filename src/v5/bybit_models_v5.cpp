@@ -7,8 +7,8 @@ Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@gmail.com>.
 */
 
 #include "vk/bybit/v5/bybit_models_v5.h"
-#include "vk/tools/utils.h"
-#include "vk/tools/json_utils.h"
+#include "vk/utils/utils.h"
+#include "vk/utils/json_utils.h"
 #include <boost/multiprecision/cpp_dec_float.hpp>
 
 namespace vk::bybit::v5 {

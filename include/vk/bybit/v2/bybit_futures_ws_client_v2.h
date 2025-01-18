@@ -9,7 +9,7 @@ Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@gmail.com>.
 #ifndef VK_INCLUDE_BYBIT_FUTURES_WS_CLIENT_V2_H
 #define VK_INCLUDE_BYBIT_FUTURES_WS_CLIENT_V2_H
 
-#include "vk/tools/log_utils.h"
+#include "vk/utils/log_utils.h"
 #include "bybit_futures_ws_session_v2.h"
 #include <string>
 

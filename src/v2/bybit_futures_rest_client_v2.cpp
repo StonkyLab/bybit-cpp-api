@@ -9,7 +9,7 @@ Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@gmail.com>.
 #include "vk/bybit/v2/bybit_futures_rest_client_v2.h"
 #include "vk/bybit/bybit_http_session.h"
 #include "vk/bybit/bybit.h"
-#include "vk/tools//utils.h"
+#include "vk/utils/utils.h"
 #include <fmt/format.h>
 #include <mutex>
 #include <vk/bybit/bybit_enums.h>
