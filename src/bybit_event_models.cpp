@@ -1,16 +1,16 @@
 /**
-Bybit Event Data Models v5
+Bybit Event Data Models
 
 Licensed under the MIT License <http://opensource.org/licenses/MIT>.
 SPDX-License-Identifier: MIT
 Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@gmail.com>.
 */
 
-#include "vk/bybit/v5/bybit_event_models_v5.h"
+#include "vk/bybit/bybit_event_models.h"
 #include "vk/utils/utils.h"
 #include "vk/utils/json_utils.h"
 
-namespace vk::bybit::v5 {
+namespace vk::bybit {
 nlohmann::json Event::toJson() const {
     throw std::runtime_error("Unimplemented: Event::toJson()");
 }

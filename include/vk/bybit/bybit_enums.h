@@ -80,26 +80,6 @@ enum class OrderStatus : std::int32_t {
     Active
 };
 
-namespace v2 {
-enum class TimeInForce : std::int32_t {
-    GoodTillCancel,
-    ImmediateOrCancel,
-    FillOrKill,
-    PostOnly
-};
-
-enum class PositionMode : std::int32_t {
-    MergedSingle,
-    BothSide
-};
-
-enum class ResponseType : std::int32_t {
-    Snapshot,
-    Delta
-};
-}
-
-namespace v5 {
 enum class AccountType : std::int32_t {
     CONTRACT,
     UNIFIED,
@@ -137,7 +117,6 @@ enum class ResponseType :std::int32_t {
     snapshot,
     delta
 };
-}
 }
 
 template <>

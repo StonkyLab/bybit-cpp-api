@@ -1,16 +1,16 @@
 /**
-Bybit Futures WebSocket Session v5
+Bybit Futures WebSocket Session
 
 Licensed under the MIT License <http://opensource.org/licenses/MIT>.
 SPDX-License-Identifier: MIT
 Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@gmail.com>.
 */
 
-#ifndef INCLUDE_VK_BYBIT_WS_SESSION_V5_H
-#define INCLUDE_VK_BYBIT_WS_SESSION_V5_H
+#ifndef INCLUDE_VK_BYBIT_WS_SESSION_H
+#define INCLUDE_VK_BYBIT_WS_SESSION_H
 
 #include "vk/utils/log_utils.h"
-#include "vk/bybit/v5/bybit_event_models_v5.h"
+#include "vk/bybit/bybit_event_models.h"
 #include <memory>
 #include <list>
 #include <boost/asio/ip/tcp.hpp>
@@ -19,7 +19,7 @@ Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@gmail.com>.
 #include <boost/beast/websocket.hpp>
 #include <nlohmann/json_fwd.hpp>
 
-namespace vk::bybit::v5::futures {
+namespace vk::bybit {
 using onDataEvent = std::function<void(const Event& event)>;
 
 class WebSocketSession final : public std::enable_shared_from_this<WebSocketSession> {
@@ -99,4 +99,4 @@ public:
     [[nodiscard]] bool isSubscribed(const std::string& subscriptionFilter) const;
 };
 }
-#endif //INCLUDE_VK_BYBIT_WS_SESSION_V5_H
+#endif //INCLUDE_VK_BYBIT_WS_SESSION_H

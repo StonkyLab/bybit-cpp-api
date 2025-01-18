@@ -1,19 +1,19 @@
 /**
-Bybit Data Models v5
+Bybit Data Models
 
 Licensed under the MIT License <http://opensource.org/licenses/MIT>.
 SPDX-License-Identifier: MIT
 Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@gmail.com>.
 */
 
-#ifndef INCLUDE_VK_BYBIT_MODELS_V5_H
-#define INCLUDE_VK_BYBIT_MODELS_V5_H
+#ifndef INCLUDE_VK_BYBIT_MODELS_H
+#define INCLUDE_VK_BYBIT_MODELS_H
 
 #include "vk/bybit/bybit_enums.h"
 #include "vk/interface/i_json.h"
 #include <nlohmann/json.hpp>
 
-namespace vk::bybit::v5 {
+namespace vk::bybit {
 struct Response : IJson {
     int m_retCode{};
     std::string m_retMsg{};
@@ -299,4 +299,4 @@ struct OrdersResponse final : Response {
 };
 }
 
-#endif //INCLUDE_VK_BYBIT_MODELS_V5_H
+#endif //INCLUDE_VK_BYBIT_MODELS_H

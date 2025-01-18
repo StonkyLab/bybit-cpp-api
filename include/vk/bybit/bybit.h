@@ -9,7 +9,7 @@ Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@gmail.com>.
 #ifndef INCLUDE_VK_BYBIT_API_H
 #define INCLUDE_VK_BYBIT_API_H
 
-#include "vk/bybit/v2/bybit_models_v2.h"
+#include "vk/bybit/bybit_models.h"
 
 namespace vk::bybit {
 class Bybit {

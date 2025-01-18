@@ -20,39 +20,30 @@ find_package(spdlog CONFIG REQUIRED)
 find_package(magic_enum REQUIRED)
 
 include_directories(include vk_cpp_common/include SYSTEM ${Boost_INCLUDE_DIR} ${OPENSSL_INCLUDE_DIR})
-add_subdirectory(vk_cpp_common)
+
+if (NOT TARGET vk_common)
+    add_subdirectory(vk_cpp_common)
+endif()
 
 set(HEADERS
-        include/vk/bybit/v2/bybit_models_v2.h
-        include/vk/bybit/v5/bybit_models_v5.h
+        include/vk/bybit/bybit_models.h
         include/vk/bybit/bybit.h
-        include/vk/bybit/v2/bybit_futures_rest_client_v2.h
-        include/vk/bybit/v5/bybit_futures_rest_client_v5.h
+        include/vk/bybit/bybit_futures_rest_client.h
         include/vk/bybit/bybit_http_session.h
-        include/vk/bybit/v2/bybit_futures_ws_client_v2.h
-        include/vk/bybit/v2/bybit_futures_ws_session_v2.h
-        include/vk/bybit/v2/bybit_ws_stream_manager_v2.h
-        include/vk/bybit/v5/bybit_futures_ws_client_v5.h
-        include/vk/bybit/v5/bybit_futures_ws_session_v5.h
-        include/vk/bybit/v5/bybit_ws_stream_manager_v5.h
-        include/vk/bybit/v2/bybit_event_models_v2.h
-        include/vk/bybit/v5/bybit_event_models_v5.h)
+        include/vk/bybit/bybit_futures_ws_client.h
+        include/vk/bybit/bybit_futures_ws_session.h
+        include/vk/bybit/bybit_ws_stream_manager.h
+        include/vk/bybit/bybit_event_models.h)
 
 set(SOURCES
         src/bybit.cpp
-        src/v2/bybit_models_v2.cpp
-        src/v2/bybit_futures_rest_client_v2.cpp
-        src/v5/bybit_models_v5.cpp
-        src/v5/bybit_futures_rest_client_v5.cpp
+        src/bybit_models.cpp
+        src/bybit_futures_rest_client.cpp
         src/bybit_http_session.cpp
-        src/v2/bybit_futures_ws_client_v2.cpp
-        src/v2/bybit_futures_ws_session_v2.cpp
-        src/v2/bybit_ws_stream_manager_v2.cpp
-        src/v5/bybit_futures_ws_client_v5.cpp
-        src/v5/bybit_futures_ws_session_v5.cpp
-        src/v5/bybit_ws_stream_manager_v5.cpp
-        src/v2/bybit_event_models_v2.cpp
-        src/v5/bybit_event_models_v5.cpp)
+        src/bybit_futures_ws_client.cpp
+        src/bybit_futures_ws_session.cpp
+        src/bybit_ws_stream_manager.cpp
+        src/bybit_event_models.cpp)
 
 if (MODULE_MANAGER)
     add_library(bybit_api MODULE ${SOURCES} ${HEADERS})
@@ -64,8 +55,5 @@ set_target_properties(bybit_api PROPERTIES POSITION_INDEPENDENT_CODE 1)
 target_link_libraries(bybit_api PRIVATE OpenSSL::Crypto OpenSSL::SSL vk_common nlohmann_json::nlohmann_json)
 target_compile_definitions(bybit_api PUBLIC VERBOSE_LOG)
 
-add_executable(test_v2 test/main_v2.cpp)
-target_link_libraries(test_v2 PRIVATE spdlog::spdlog_header_only bybit_api)
-
-add_executable(test_v5 test/main_v5.cpp)
-target_link_libraries(test_v5 PRIVATE spdlog::spdlog_header_only bybit_api)
+add_executable(bybit_test test/main.cpp)
+target_link_libraries(bybit_test PRIVATE spdlog::spdlog_header_only bybit_api)

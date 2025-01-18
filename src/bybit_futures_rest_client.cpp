@@ -1,19 +1,19 @@
 /**
-Bybit Futures REST Client v5
+Bybit Futures REST Client
 
 Licensed under the MIT License <http://opensource.org/licenses/MIT>.
 SPDX-License-Identifier: MIT
 Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@gmail.com>.
 */
 
-#include "vk/bybit/v5/bybit_futures_rest_client_v5.h"
+#include "vk/bybit/bybit_futures_rest_client.h"
 #include "vk/bybit/bybit_http_session.h"
 #include "vk/bybit/bybit.h"
 #include "vk/utils/utils.h"
 #include <fmt/format.h>
 #include <mutex>
 
-namespace vk::bybit::v5::futures {
+namespace vk::bybit {
 template <typename ValueType>
 ValueType handleBybitResponse(const http::response<http::string_body>& response) {
     ValueType retVal;

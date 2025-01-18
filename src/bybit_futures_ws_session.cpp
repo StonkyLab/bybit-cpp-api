@@ -1,12 +1,12 @@
 /**
-Bybit Futures WebSocket Session v5
+Bybit Futures WebSocket Session
 
 Licensed under the MIT License <http://opensource.org/licenses/MIT>.
 SPDX-License-Identifier: MIT
 Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@gmail.com>.
 */
 
-#include "vk/bybit/v5/bybit_futures_ws_session_v5.h"
+#include "vk/bybit/bybit_futures_ws_session.h"
 #include "vk/utils/log_utils.h"
 #include "vk/utils/json_utils.h"
 #include <fmt/format.h>
@@ -14,7 +14,7 @@ Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@gmail.com>.
 #include <boost/asio/buffers_iterator.hpp>
 #include <boost/asio/strand.hpp>
 
-namespace vk::bybit::v5::futures {
+namespace vk::bybit {
 static constexpr int PING_INTERVAL_IN_S = 20;
 
 WebSocketSession::WebSocketSession(boost::asio::io_context& ioc, boost::asio::ssl::context& ctx,

@@ -1,19 +1,19 @@
 /**
-Bybit Futures WebSocket Client v5
+Bybit Futures WebSocket Client
 
 Licensed under the MIT License <http://opensource.org/licenses/MIT>.
 SPDX-License-Identifier: MIT
 Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@gmail.com>.
 */
 
-#ifndef INCLUDE_VK_BYBIT_FUTURES_WS_CLIENT_V5_H
-#define INCLUDE_VK_BYBIT_FUTURES_WS_CLIENT_V5_H
+#ifndef INCLUDE_VK_BYBIT_FUTURES_WS_CLIENT_H
+#define INCLUDE_VK_BYBIT_FUTURES_WS_CLIENT_H
 
+#include "bybit_futures_ws_session.h"
 #include "vk/utils/log_utils.h"
-#include "bybit_futures_ws_session_v5.h"
 #include <string>
 
-namespace vk::bybit::v5::futures {
+namespace vk::bybit {
 class WebSocketClient {
     struct P;
     std::unique_ptr<P> m_p{};
@@ -64,4 +64,4 @@ public:
 };
 }
 
-#endif //INCLUDE_VK_BYBIT_FUTURES_WS_CLIENT_V5_H
+#endif //INCLUDE_VK_BYBIT_FUTURES_WS_CLIENT_H

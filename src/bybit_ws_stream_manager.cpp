@@ -6,9 +6,9 @@ SPDX-License-Identifier: MIT
 Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@gmail.com>.
 */
 
-#include "vk/bybit/v5/bybit_futures_rest_client_v5.h"
-#include "vk/bybit/v5/bybit_ws_stream_manager_v5.h"
-#include "vk/bybit/v5/bybit_futures_ws_client_v5.h"
+#include "vk/bybit/bybit_futures_rest_client.h"
+#include "vk/bybit/bybit_ws_stream_manager.h"
+#include "vk/bybit/bybit_futures_ws_client.h"
 #include "vk/utils/utils.h"
 #include <mutex>
 #include <fmt/format.h>
@@ -16,7 +16,7 @@ Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@gmail.com>.
 
 using namespace std::chrono_literals;
 
-namespace vk::bybit::v5::futures {
+namespace vk::bybit {
 struct WSStreamManager::P {
     std::unique_ptr<WebSocketClient> m_wsClient;
     int m_timeout{5};

@@ -1,20 +1,20 @@
 /**
-Bybit Futures REST Client v5
+Bybit Futures REST Client
 
 Licensed under the MIT License <http://opensource.org/licenses/MIT>.
 SPDX-License-Identifier: MIT
 Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@gmail.com>.
 */
 
-#ifndef INCLUDE_VK_BYBIT_FUTURES_REST_CLIENT_V5_H
-#define INCLUDE_VK_BYBIT_FUTURES_REST_CLIENT_V5_H
+#ifndef INCLUDE_VK_BYBIT_FUTURES_REST_CLIENT_H
+#define INCLUDE_VK_BYBIT_FUTURES_REST_CLIENT_H
 
-#include "vk/bybit/v5/bybit_models_v5.h"
+#include "vk/bybit/bybit_models.h"
 #include <string>
 #include <memory>
 #include <optional>
 
-namespace vk::bybit::v5::futures {
+namespace vk::bybit {
 
 class RESTClient {
 
@@ -169,4 +169,4 @@ public:
 };
 }
 
-#endif //INCLUDE_VK_BYBIT_FUTURES_REST_CLIENT_V5_H
+#endif //INCLUDE_VK_BYBIT_FUTURES_REST_CLIENT_H

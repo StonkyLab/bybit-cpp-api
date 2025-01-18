@@ -1,17 +1,17 @@
 /**
-Bybit Data Models v5
+Bybit Data Models
 
 Licensed under the MIT License <http://opensource.org/licenses/MIT>.
 SPDX-License-Identifier: MIT
 Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@gmail.com>.
 */
 
-#include "vk/bybit/v5/bybit_models_v5.h"
+#include "vk/bybit/bybit_models.h"
 #include "vk/utils/utils.h"
 #include "vk/utils/json_utils.h"
 #include <boost/multiprecision/cpp_dec_float.hpp>
 
-namespace vk::bybit::v5 {
+namespace vk::bybit {
 bool
 readDecimalValue(const nlohmann::json& json, const std::string& key, boost::multiprecision::cpp_dec_float_50& value,
                  boost::multiprecision::cpp_dec_float_50 defaultVal = boost::multiprecision::cpp_dec_float_50("0")) {

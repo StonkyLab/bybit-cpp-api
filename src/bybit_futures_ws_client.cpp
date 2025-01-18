@@ -1,20 +1,19 @@
 /**
-Bybit Futures WebSocket Client v2
+Bybit Futures WebSocket Client
 
 Licensed under the MIT License <http://opensource.org/licenses/MIT>.
 SPDX-License-Identifier: MIT
 Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@gmail.com>.
 */
 
-#include "vk/bybit/v2/bybit_futures_ws_client_v2.h"
-#include "vk/utils/log_utils.h"
+#include "vk/bybit/bybit_futures_ws_client.h"
 #include <boost/beast/core.hpp>
 #include <fmt/format.h>
 #include <thread>
 
 using namespace std::chrono_literals;
 
-namespace vk::bybit::v2::futures {
+namespace vk::bybit {
 #define STRINGIZE_I(x) #x
 #define STRINGIZE(x) STRINGIZE_I(x)
 

@@ -1,19 +1,19 @@
 /**
-Bybit Futures WebSocket Stream manager v2
+Bybit Futures WebSocket Stream manager
 
 Licensed under the MIT License <http://opensource.org/licenses/MIT>.
 SPDX-License-Identifier: MIT
 Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@gmail.com>.
 */
 
-#ifndef INCLUDE_VK_BYBIT_FUTURES_WS_STREAM_MANAGER_V2_H
-#define INCLUDE_VK_BYBIT_FUTURES_WS_STREAM_MANAGER_V2_H
+#ifndef INCLUDE_VK_BYBIT_FUTURES_WS_STREAM_MANAGER_H
+#define INCLUDE_VK_BYBIT_FUTURES_WS_STREAM_MANAGER_H
 
 #include "vk/utils/log_utils.h"
-#include "vk/bybit/v2/bybit_event_models_v2.h"
+#include "vk/bybit/bybit_event_models.h"
 #include <optional>
 
-namespace vk::bybit::v2::futures {
+namespace vk::bybit {
 class WSStreamManager {
     struct P;
     std::unique_ptr<P> m_p{};
@@ -24,11 +24,11 @@ public:
     ~ WSStreamManager();
 
     /**
-     * Check if the InstrumentInfo Stream is subscribed for a selected pair, if not then subscribe it. When force parameter
+     * Check if the Ticker Stream is subscribed for a selected pair, if not then subscribe it. When force parameter
      * is true then re-subscribe if already subscribed
      * @param pair e.g BTCUSDT
      */
-    void subscribeInstrumentInfoStream(const std::string& pair) const;
+    void subscribeTickerStream(const std::string& pair) const;
 
     /**
      * Check if the Candlestick Stream is subscribed for a selected pair, if not then subscribe it. When force parameter
@@ -57,11 +57,11 @@ public:
     void setLoggerCallback(const onLogMessage& onLogMessageCB) const;
 
     /**
-     * Try to read EventInstrumentInfo structure. It will block at most Timeout time.
+     * Try to read EventTicker structure. It will block at most Timeout time.
      * @param pair e.g BTCUSDT
-     * @return EventInstrumentInfo structure if successful
+     * @return EventTicker structure if successful
      */
-    [[nodiscard]] std::optional<EventInstrumentInfo> readInstrumentInfo(const std::string& pair) const;
+    [[nodiscard]] std::optional<EventTicker> readEventTicker(const std::string& pair) const;
 
     /**
      * Try to read EventCandlestick structure. It will block at most Timeout time.
@@ -74,4 +74,4 @@ public:
 };
 }
 
-#endif //INCLUDE_VK_BYBIT_FUTURES_WS_STREAM_MANAGER_V2_H
+#endif //INCLUDE_VK_BYBIT_FUTURES_WS_STREAM_MANAGER_H

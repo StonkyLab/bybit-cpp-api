@@ -1,6 +1,6 @@
 #include "vk/bybit/bybit.h"
-#include "vk/bybit/v5/bybit_futures_rest_client_v5.h"
-#include "vk/bybit/v5/bybit_ws_stream_manager_v5.h"
+#include "vk/bybit/bybit_futures_rest_client.h"
+#include "vk/bybit/bybit_ws_stream_manager.h"
 #include "vk/utils/json_utils.h"
 #include "vk/utils/log_utils.h"
 #include "vk/utils/utils.h"
@@ -14,7 +14,7 @@
 #include <boost/multiprecision/cpp_dec_float.hpp>
 
 using namespace vk::bybit;
-using namespace vk::bybit::v5;
+using namespace vk::bybit;
 using namespace std::chrono_literals;
 
 constexpr int HISTORY_LENGTH_IN_S = 86400; // 1 day
@@ -89,7 +89,7 @@ bool checkCandles(const std::vector<Candle>& candles, const CandleInterval inter
 void testHistory() {
     try {
         const auto [fst, snd] = readCredentials();
-        const auto restClient = std::make_unique<futures::RESTClient>(
+        const auto restClient = std::make_unique<RESTClient>(
             fst, snd);
 
         const auto from = std::chrono::seconds(std::time(nullptr)).count() - HISTORY_LENGTH_IN_S;
@@ -112,7 +112,7 @@ void testHistory() {
 
 void measureRestResponses() {
     const auto [fst, snd] = readCredentials();
-    const auto restClient = std::make_shared<futures::RESTClient>(fst, snd);
+    const auto restClient = std::make_shared<RESTClient>(fst, snd);
 
     using std::chrono::high_resolution_clock;
     using std::chrono::duration_cast;
@@ -134,7 +134,7 @@ void measureRestResponses() {
             overallTime += ms_double.count();
 
             t1 = high_resolution_clock::now();
-            auto ex = restClient->getInstrumentsInfo(vk::bybit::v5::Category::linear, "", true);
+            auto ex = restClient->getInstrumentsInfo(Category::linear, "", true);
             t2 = high_resolution_clock::now();
 
             ms_double = t2 - t1;
@@ -180,7 +180,7 @@ void replaceAll(std::string& s, const std::string& search, const std::string& re
 
 void positions() {
     const auto [fst, snd] = readCredentials();
-    const auto restClient = std::make_shared<futures::RESTClient>(fst, snd);
+    const auto restClient = std::make_shared<RESTClient>(fst, snd);
 
     try {
         for (const auto& position : restClient->getPositionInfo(Category::linear, "BTCUSDT")) {
@@ -201,7 +201,8 @@ void positions() {
                 order.m_timeInForce = TimeInForce::GTC;
                 order.m_orderLinkId = std::to_string(ts);
                 order.m_positionIdx = position.m_positionIdx;
-                restClient->placeOrder(order);
+                const auto id = restClient->placeOrder(order);
+                logFunction(vk::LogSeverity::Info, fmt::format("Order placed, id: {}", id.m_orderId));
             }
         }
     }
@@ -212,7 +213,7 @@ void positions() {
 
 void testOrders() {
     const auto [fst, snd] = readCredentials();
-    auto restClient = std::make_shared<futures::RESTClient>(fst, snd);
+    auto restClient = std::make_shared<RESTClient>(fst, snd);
 
     try {
         const auto ts = vk::getMsTimestamp(vk::currentTime()).count();
@@ -238,12 +239,17 @@ void testOrders() {
 
 void setPositionMode() {
     const auto [fst, snd] = readCredentials();
-    const auto restClient = std::make_shared<futures::RESTClient>(fst, snd);
-    restClient->setPositionMode(Category::linear, "", "USDT", PositionMode::MergedSingle);
+
+    if (const auto restClient = std::make_shared<RESTClient>(fst, snd); restClient->setPositionMode(Category::linear, "", "USDT", PositionMode::MergedSingle)) {
+        logFunction(vk::LogSeverity::Info, "Position mode set successfully");
+    }
+    else {
+        logFunction(vk::LogSeverity::Info, "Failed to set position mode");
+    }
 }
 
 void testWebsockets() {
-    const std::shared_ptr wsManager = std::make_unique<futures::WSStreamManager>();
+    const std::shared_ptr wsManager = std::make_unique<WSStreamManager>();
     wsManager->setLoggerCallback(&logFunction);
 
     wsManager->subscribeTickerStream("BTCUSDT");
