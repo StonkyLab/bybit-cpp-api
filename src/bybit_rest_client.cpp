@@ -6,7 +6,7 @@ SPDX-License-Identifier: MIT
 Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@gmail.com>.
 */
 
-#include "vk/bybit/bybit_futures_rest_client.h"
+#include "vk/bybit/bybit_rest_client.h"
 #include "vk/bybit/bybit_http_session.h"
 #include "vk/bybit/bybit.h"
 #include "vk/utils/utils.h"

@@ -6,9 +6,9 @@ SPDX-License-Identifier: MIT
 Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@gmail.com>.
 */
 
-#include "vk/bybit/bybit_futures_rest_client.h"
+#include "vk/bybit/bybit_rest_client.h"
 #include "vk/bybit/bybit_ws_stream_manager.h"
-#include "vk/bybit/bybit_futures_ws_client.h"
+#include "vk/bybit/bybit_ws_client.h"
 #include "vk/utils/utils.h"
 #include <mutex>
 #include <fmt/format.h>

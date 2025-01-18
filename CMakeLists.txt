@@ -28,20 +28,20 @@ endif()
 set(HEADERS
         include/vk/bybit/bybit_models.h
         include/vk/bybit/bybit.h
-        include/vk/bybit/bybit_futures_rest_client.h
+        include/vk/bybit/bybit_rest_client.h
         include/vk/bybit/bybit_http_session.h
-        include/vk/bybit/bybit_futures_ws_client.h
-        include/vk/bybit/bybit_futures_ws_session.h
+        include/vk/bybit/bybit_ws_client.h
+        include/vk/bybit/bybit_ws_session.h
         include/vk/bybit/bybit_ws_stream_manager.h
         include/vk/bybit/bybit_event_models.h)
 
 set(SOURCES
         src/bybit.cpp
         src/bybit_models.cpp
-        src/bybit_futures_rest_client.cpp
+        src/bybit_rest_client.cpp
         src/bybit_http_session.cpp
-        src/bybit_futures_ws_client.cpp
-        src/bybit_futures_ws_session.cpp
+        src/bybit_ws_client.cpp
+        src/bybit_ws_session.cpp
         src/bybit_ws_stream_manager.cpp
         src/bybit_event_models.cpp)
 

@@ -1,5 +1,5 @@
 #include "vk/bybit/bybit.h"
-#include "vk/bybit/bybit_futures_rest_client.h"
+#include "vk/bybit/bybit_rest_client.h"
 #include "vk/bybit/bybit_ws_stream_manager.h"
 #include "vk/utils/json_utils.h"
 #include "vk/utils/log_utils.h"
