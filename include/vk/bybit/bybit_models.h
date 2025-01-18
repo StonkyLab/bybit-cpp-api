@@ -297,6 +297,25 @@ struct OrdersResponse final : Response {
 
     void fromJson(const nlohmann::json& json) override;
 };
+
+struct FundingRate final : IJson {
+    std::string m_symbol{};
+    double m_fundingRate{};
+    std::int64_t m_fundingRateTimestamp{};
+
+    [[nodiscard]] nlohmann::json toJson() const override;
+
+    void fromJson(const nlohmann::json& json) override;
+};
+
+struct FundingRates final : Response {
+    Category m_category{Category::linear};
+    std::vector<FundingRate> m_fundingRates{};
+
+    [[nodiscard]] nlohmann::json toJson() const override;
+
+    void fromJson(const nlohmann::json& json) override;
+};
 }
 
 #endif //INCLUDE_VK_BYBIT_MODELS_H

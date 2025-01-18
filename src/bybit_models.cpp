@@ -432,4 +432,30 @@ void OrdersResponse::fromJson(const nlohmann::json& json) {
         m_orders.push_back(orderResponse);
     }
 }
+
+nlohmann::json FundingRate::toJson() const {
+    throw std::runtime_error("Unimplemented: FundingRate::toJson()");
+}
+
+void FundingRate::fromJson(const nlohmann::json& json) {
+    readValue<std::string>(json, "symbol", m_symbol);
+    m_fundingRate = readStringAsDouble(json, "fundingRate", m_fundingRate);
+    m_fundingRateTimestamp = readStringAsInt64(json, "fundingRateTimestamp", m_fundingRateTimestamp);
+}
+
+nlohmann::json FundingRates::toJson() const {
+    throw std::runtime_error("Unimplemented: FundingRates::toJson()");
+}
+
+void FundingRates::fromJson(const nlohmann::json& json) {
+    Response::fromJson(json);
+
+    readMagicEnum<Category>(m_result, "category", m_category);
+
+    for (const auto& el : m_result["list"].items()) {
+        FundingRate fundingRate;
+        fundingRate.fromJson(el.value());
+        m_fundingRates.push_back(fundingRate);
+    }
+}
 }

@@ -15,24 +15,21 @@ Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@gmail.com>.
 #include <optional>
 
 namespace vk::bybit {
-
 class RESTClient {
-
     struct P;
-    std::unique_ptr <P> m_p{};
+    std::unique_ptr<P> m_p{};
 
 public:
+    RESTClient(const std::string& apiKey, const std::string& apiSecret);
 
-    RESTClient(const std::string &apiKey, const std::string &apiSecret);
-
-	~RESTClient();
+    ~RESTClient();
 
     /**
      * Set credentials to the RESTClient instance, it will reset the underlying HTTP Session
      * @param apiKey
      * @param apiSecret
      */
-    void setCredentials(const std::string &apiKey, const std::string &apiSecret) const;
+    void setCredentials(const std::string& apiKey, const std::string& apiSecret) const;
 
     /**
      * Download historical candles
@@ -47,18 +44,19 @@ public:
      * @see https://bybit-exchange.github.io/docs/v5/market/kline
      */
     [[nodiscard]] std::vector<Candle>
-    getHistoricalPrices(Category category, const std::string &symbol, CandleInterval interval, std::int64_t from, std::int64_t to,
+    getHistoricalPrices(Category category, const std::string& symbol, CandleInterval interval, std::int64_t from,
+                        std::int64_t to,
                         std::int32_t limit = 200) const;
 
-	/**
-	 * Get wallet balance info
-	 * @param coin e.g. USDT, returns all wallet balances if empty
-	 * @param accountType Unified account: UNIFIED (trade spot/linear/options), CONTRACT(trade inverse), Classic account: CONTRACT, SPOT
-	 * @return WalletBalance structure
-	 * @throws nlohmann::json::exception, std::exception
-	 * @see https://bybit-exchange.github.io/docs/v5/account/wallet-balance
-	 */
-    [[nodiscard]] WalletBalance getWalletBalance(AccountType accountType, const std::string &coin = "") const;
+    /**
+     * Get wallet balance info
+     * @param coin e.g. USDT, returns all wallet balances if empty
+     * @param accountType Unified account: UNIFIED (trade spot/linear/options), CONTRACT(trade inverse), Classic account: CONTRACT, SPOT
+     * @return WalletBalance structure
+     * @throws nlohmann::json::exception, std::exception
+     * @see https://bybit-exchange.github.io/docs/v5/account/wallet-balance
+     */
+    [[nodiscard]] WalletBalance getWalletBalance(AccountType accountType, const std::string& coin = "") const;
 
     /**
      * Returns server time in ms
@@ -76,7 +74,7 @@ public:
      * @throws nlohmann::json::exception, std::exception
      * @see https://bybit-exchange.github.io/docs/v5/position
      */
-    [[nodiscard]] std::vector<Position> getPositionInfo(Category category, const std::string &symbol = "") const;
+    [[nodiscard]] std::vector<Position> getPositionInfo(Category category, const std::string& symbol = "") const;
 
     /**
      * Get instruments info
@@ -87,7 +85,8 @@ public:
      * @return vector of Instrument structures
      * @see https://bybit-exchange.github.io/docs/v5/market/instrument
      */
-    [[nodiscard]] std::vector<Instrument> getInstrumentsInfo(Category category, const std::string &symbol = "", bool force = false) const;
+    [[nodiscard]] std::vector<Instrument> getInstrumentsInfo(Category category, const std::string& symbol = "",
+                                                             bool force = false) const;
 
     /**
      * Switching between One-Way Mode and Hedge Mode
@@ -99,7 +98,8 @@ public:
      * @return True if success
      * @see https://bybit-exchange.github.io/docs/v5/position/position-mode
      */
-    bool setPositionMode(Category category, const std::string &symbol, const std::string &coin, PositionMode positionMode) const;
+    [[nodiscard]] bool setPositionMode(Category category, const std::string& symbol, const std::string& coin,
+                                       PositionMode positionMode) const;
 
     /**
      * Place order
@@ -108,7 +108,7 @@ public:
      * @throws nlohmann::json::exception, std::exception
      * @see https://bybit-exchange.github.io/docs/v5/order/create-order
     */
-    [[nodiscard]] OrderId placeOrder(Order &order) const;
+    [[nodiscard]] OrderId placeOrder(Order& order) const;
 
     /**
      * Get open orders list
@@ -118,7 +118,7 @@ public:
      * @return vector of OrderResponse structures
      * @see https://bybit-exchange.github.io/docs/v5/order/open-order
      */
-    [[nodiscard]] std::vector<OrderResponse> getOpenOrders(Category category, const std::string &symbol) const;
+    [[nodiscard]] std::vector<OrderResponse> getOpenOrders(Category category, const std::string& symbol) const;
 
     /**
      * Get open order. Because order creation/cancellation is asynchronous, there can be a data delay in this
@@ -131,7 +131,8 @@ public:
      * @see https://bybit-exchange.github.io/docs/v5/order/open-order
      */
     [[nodiscard]] std::optional<OrderResponse>
-    getOpenOrder(Category category, const std::string &symbol, const std::string &orderId, const std::string &orderLinkId) const;
+    getOpenOrder(Category category, const std::string& symbol, const std::string& orderId,
+                 const std::string& orderLinkId) const;
 
     /**
      * Cancel all orders for a given symbol
@@ -140,7 +141,7 @@ public:
      * @return vector of OrderId of canceled orders
      * @see https://bybit-exchange.github.io/docs/v5/order/cancel-allctive
      */
-    [[nodiscard]] std::vector<OrderId> cancelAllOrders(Category category, const std::string &symbol = "") const;
+    [[nodiscard]] std::vector<OrderId> cancelAllOrders(Category category, const std::string& symbol = "") const;
 
     /**
      * Cancel order
@@ -153,19 +154,35 @@ public:
      * @see https://bybit-exchange.github.io/docs/v5/order/cancel-order
     */
     [[nodiscard]] OrderId
-    cancelOrder(Category category, const std::string &symbol, const std::string &orderId = "", const std::string &orderLinkId = "") const;
+    cancelOrder(Category category, const std::string& symbol, const std::string& orderId = "",
+                const std::string& orderLinkId = "") const;
 
-	/**
-	 * Set instruments
-	 * @param instruments
-	 */
-	void setInstruments(const std::vector<Instrument> &instruments) const;
+    /**
+     * Set instruments
+     * @param instruments
+     */
+    void setInstruments(const std::vector<Instrument>& instruments) const;
 
     /**
      * Close all open positions with market order
      * @param category i.e. Spot, Linear...
      */
     void closeAllPositions(Category category) const;
+
+    /**
+     * Returns a vector of funding rates for a given category and symbol.
+     * @param category i.e. Spot, Linear...
+     * @param symbol
+     * @param startTime timestamp in ms to get funding rate from INCLUSIVE.
+     * @param endTime timestamp in ms to get funding rate until INCLUSIVE.
+     * @param limit max number of records, default 200; max 200
+     * @return vector of FundingRate structures
+     * @throws nlohmann::json::exception, std::exception
+     * @see https://bybit-exchange.github.io/docs/v5/market/history-fund-rate
+     */
+    [[nodiscard]] std::vector<FundingRate>
+    getFundingRates(Category category, const std::string& symbol, int64_t startTime, int64_t endTime,
+                    std::int32_t = 200) const;
 };
 }
 

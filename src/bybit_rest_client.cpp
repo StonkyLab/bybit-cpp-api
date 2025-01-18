@@ -55,7 +55,9 @@ public:
         m_instruments.m_instruments = instruments;
     }
 
-    bool findPricePrecisionsForInstrument(const Category category, const std::string& symbol, double& priceStep,
+    bool findPricePrecisionsForInstrument(const Category category,
+                                          const std::string& symbol,
+                                          double& priceStep,
                                           double& qtyStep) const {
         for (const auto symbols = m_parent->getInstrumentsInfo(category); const auto& symbolEl : symbols) {
             if (symbolEl.m_symbol == symbol) {
@@ -76,7 +78,9 @@ public:
     }
 
     [[nodiscard]] std::vector<Candle>
-    getHistoricalPrices(const Category category, const std::string& symbol, const CandleInterval interval,
+    getHistoricalPrices(const Category category,
+                        const std::string& symbol,
+                        const CandleInterval interval,
                         const std::int64_t startTime,
                         const std::int32_t limit) const {
         const std::string path = "/v5/market/kline";
@@ -93,6 +97,26 @@ public:
         const auto response = checkResponse(m_httpSession->get(path, parameters));
         return handleBybitResponse<Candles>(response).m_candles;
     }
+
+    [[nodiscard]] std::vector<FundingRate> getFundingRates(const Category category,
+                                                           const std::string& symbol,
+                                                           const std::int64_t startTime,
+                                                           const int64_t endTime,
+                                                           const std::int32_t limit) const {
+        const std::string path = "/v5/market/funding/history";
+        std::map<std::string, std::string> parameters;
+        parameters.insert_or_assign("category", magic_enum::enum_name(category));
+        parameters.insert_or_assign("symbol", symbol);
+        parameters.insert_or_assign("startTime", std::to_string(startTime));
+        parameters.insert_or_assign("endTime", std::to_string(endTime));
+
+        if (limit != 200) {
+            parameters.insert_or_assign("limit", std::to_string(limit));
+        }
+
+        const auto response = checkResponse(m_httpSession->get(path, parameters));
+        return handleBybitResponse<FundingRates>(response).m_fundingRates;
+    }
 };
 
 RESTClient::RESTClient(const std::string& apiKey, const std::string& apiSecret) : m_p(
@@ -108,8 +132,11 @@ void RESTClient::setCredentials(const std::string& apiKey, const std::string& ap
 }
 
 std::vector<Candle>
-RESTClient::getHistoricalPrices(const Category category, const std::string& symbol, const CandleInterval interval,
-                                std::int64_t from, const std::int64_t to,
+RESTClient::getHistoricalPrices(const Category category,
+                                const std::string& symbol,
+                                const CandleInterval interval,
+                                std::int64_t from,
+                                const std::int64_t to,
                                 const std::int32_t limit) const {
     std::vector<Candle> retVal;
 
@@ -197,7 +224,9 @@ RESTClient::getInstrumentsInfo(const Category category, const std::string& symbo
     return m_p->getInstruments().m_instruments;
 }
 
-bool RESTClient::setPositionMode(Category category, const std::string& symbol, const std::string& coin,
+bool RESTClient::setPositionMode(Category category,
+                                 const std::string& symbol,
+                                 const std::string& coin,
                                  PositionMode positionMode) const {
     if (symbol.empty() && coin.empty()) {
         throw std::invalid_argument("Invalid parameters symbol/coin");
@@ -260,7 +289,9 @@ std::vector<OrderResponse> RESTClient::getOpenOrders(const Category category, co
 }
 
 std::optional<OrderResponse>
-RESTClient::getOpenOrder(const Category category, const std::string& symbol, const std::string& orderId,
+RESTClient::getOpenOrder(const Category category,
+                         const std::string& symbol,
+                         const std::string& orderId,
                          const std::string& orderLinkId) const {
     const std::string path = "/v5/order/realtime";
     std::map<std::string, std::string> parameters;
@@ -301,7 +332,9 @@ std::vector<OrderId> RESTClient::cancelAllOrders(Category category, const std::s
     return retVal;
 }
 
-OrderId RESTClient::cancelOrder(const Category category, const std::string& symbol, const std::string& orderId,
+OrderId RESTClient::cancelOrder(const Category category,
+                                const std::string& symbol,
+                                const std::string& orderId,
                                 const std::string& orderLinkId) const {
     const std::string path = "/v5/order/cancel";
     std::map<std::string, std::string> parameters;
@@ -343,5 +376,32 @@ void RESTClient::closeAllPositions(const Category category) const {
             auto orderResponse = placeOrder(order);
         }
     }
+}
+
+std::vector<FundingRate>
+RESTClient::getFundingRates(const Category category,
+                            const std::string& symbol,
+                            const int64_t startTime,
+                            int64_t endTime,
+                            const std::int32_t limit) const {
+    std::vector<FundingRate> retVal;
+    std::vector<FundingRate> fr;
+
+    if (startTime < endTime) {
+        fr = m_p->getFundingRates(category, symbol, startTime, endTime, limit);
+    }
+
+    while (!fr.empty()) {
+        retVal.insert(retVal.end(), fr.begin(), fr.end());
+        endTime = fr.back().m_fundingRateTimestamp - 1;
+        fr.clear();
+
+        if (startTime < endTime) {
+            fr = m_p->getFundingRates(category, symbol, startTime, endTime, limit);
+        }
+    }
+
+    std::ranges::reverse(retVal);
+    return retVal;
 }
 }
