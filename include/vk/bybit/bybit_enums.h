@@ -9,7 +9,7 @@ Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@gmail.com>.
 #ifndef INCLUDE_VK_BYBIT_ENUMS_H
 #define INCLUDE_VK_BYBIT_ENUMS_H
 
-#include "magic_enum.hpp"
+#include "magic_enum/magic_enum.hpp"
 
 namespace vk::bybit {
 enum class CandleInterval : std::int32_t {

@@ -5,13 +5,13 @@ set(CMAKE_CXX_STANDARD 20)
 
 if (MSVC)
     add_definitions(-D_WIN32_WINNT=0x0A00 /bigobj -DVERBOSE_LOG)
+else ()
+    add_definitions(-fPIC)
 endif ()
 
 if (POLICY CMP0167)
     cmake_policy(SET CMP0167 NEW)
 endif ()
-
-add_definitions(-fPIC)
 
 find_package(Boost 1.83 REQUIRED)
 find_package(OpenSSL REQUIRED)
