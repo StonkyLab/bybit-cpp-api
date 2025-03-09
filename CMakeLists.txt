@@ -51,7 +51,6 @@ else ()
     add_library(bybit_api STATIC ${SOURCES} ${HEADERS})
 endif ()
 
-set_target_properties(bybit_api PROPERTIES POSITION_INDEPENDENT_CODE 1)
 target_link_libraries(bybit_api PRIVATE OpenSSL::Crypto OpenSSL::SSL vk_common nlohmann_json::nlohmann_json)
 target_compile_definitions(bybit_api PUBLIC VERBOSE_LOG)
 
