@@ -16,14 +16,14 @@ Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@gmail.com>.
 #include <magic_enum.hpp>
 
 namespace vk {
-class OKXFuturesExchangeConnector final : public IExchangeConnector {
+class BybitFuturesExchangeConnector final : public IExchangeConnector {
     struct P;
     std::unique_ptr<P> m_p{};
 
 public:
-    OKXFuturesExchangeConnector();
+    BybitFuturesExchangeConnector();
 
-    ~OKXFuturesExchangeConnector() override;
+    ~BybitFuturesExchangeConnector() override;
 
     [[nodiscard]] std::string name() const override;
 
@@ -46,8 +46,10 @@ public:
 
     [[nodiscard]] std::vector<Ticker> getTickerInfo(const std::string& symbol) const override;
 
+    [[nodiscard]] std::int64_t getServerTime() const override;
+
     static std::shared_ptr<IExchangeConnector> createInstance() {
-        return std::make_shared<OKXFuturesExchangeConnector>();
+        return std::make_shared<BybitFuturesExchangeConnector>();
     }
 };
 
@@ -60,7 +62,7 @@ BOOST_SYMBOL_EXPORT IModuleFactory *getModuleFactory() {
         g_moduleFactory = new ModuleFactory(factoryInfo);
         g_moduleFactory->registerClassByName<IExchangeConnector>(
             std::string(magic_enum::enum_name(ExchangeId::BybitFutures)),
-            &OKXFuturesExchangeConnector::createInstance);
+            &BybitFuturesExchangeConnector::createInstance);
     } else {
         return nullptr;
     }
