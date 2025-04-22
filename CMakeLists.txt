@@ -46,13 +46,12 @@ set(SOURCES
         src/bybit_event_models.cpp)
 
 if (MODULE_MANAGER)
-    add_library(bybit_api MODULE ${SOURCES} ${HEADERS})
+    add_library(bybit_api SHARED ${SOURCES} ${HEADERS})
 else ()
     add_library(bybit_api STATIC ${SOURCES} ${HEADERS})
+
+    add_executable(bybit_test test/main.cpp)
+    target_link_libraries(bybit_test PRIVATE spdlog::spdlog_header_only bybit_api)
 endif ()
 
 target_link_libraries(bybit_api PRIVATE OpenSSL::Crypto OpenSSL::SSL vk_common nlohmann_json::nlohmann_json)
-target_compile_definitions(bybit_api PUBLIC VERBOSE_LOG)
-
-add_executable(bybit_test test/main.cpp)
-target_link_libraries(bybit_test PRIVATE spdlog::spdlog_header_only bybit_api)
