@@ -172,10 +172,9 @@ public:
     /**
      * Returns a vector of funding rates for a given category and symbol.
      * @param category i.e. Spot, Linear...
-     * @param symbol
+     * @param symbol e.g. BTCUSDT
      * @param startTime timestamp in ms to get funding rate from INCLUSIVE.
      * @param endTime timestamp in ms to get funding rate until INCLUSIVE.
-     * @param limit max number of records, default 200; max 200
      * @return vector of FundingRate structures
      * @throws nlohmann::json::exception, std::exception
      * @see https://bybit-exchange.github.io/docs/v5/market/history-fund-rate
@@ -183,6 +182,15 @@ public:
     [[nodiscard]] std::vector<FundingRate>
     getFundingRates(Category category, const std::string& symbol, int64_t startTime, int64_t endTime,
                     std::int32_t = 200) const;
+
+    /**
+     * Query for the latest price snapshot, best bid/ask price, and trading volume in the last 24 hours.
+     * @param category  i.e. Spot, Linear...
+     * @param symbol e.g. BTCUSDT, if empty then all available tickers are returned
+     * @return vector of Ticker structures
+     * @see https://bybit-exchange.github.io/docs/v5/market/tickers
+     */
+    [[nodiscard]] std::vector<Ticker> getTickers(Category category, const std::string& symbol) const;
 };
 }
 

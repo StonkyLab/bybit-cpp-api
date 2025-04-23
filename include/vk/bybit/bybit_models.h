@@ -316,6 +316,40 @@ struct FundingRates final : Response {
 
     void fromJson(const nlohmann::json& json) override;
 };
+
+struct Ticker final : IJson {
+    std::string m_symbol{};
+    double m_lastPrice{};
+    double m_indexPrice{};
+    double m_marktPrice{};
+    double m_prevPrice24h{};
+    double m_price24hPcnt{};
+    double m_highPrice24h{};
+    double m_prevPrice1h{};
+    std::int64_t m_openInterest{};
+    double m_openInterestValue{};
+    double m_turnover24h{};
+    double m_volume24h{};
+    double m_fundingRate{};
+    std::int64_t m_nextFundingTime{};
+    double m_ask1Size{};
+    double m_bid1Price{};
+    double m_ask1Price{};
+    double m_bid1Size{};
+
+    [[nodiscard]] nlohmann::json toJson() const override;
+
+    void fromJson(const nlohmann::json& json) override;
+};
+
+struct Tickers final : Response {
+    Category m_category{Category::linear};
+    std::vector<Ticker> m_tickers{};
+
+    [[nodiscard]] nlohmann::json toJson() const override;
+
+    void fromJson(const nlohmann::json& json) override;
+};
 }
 
 #endif //INCLUDE_VK_BYBIT_MODELS_H

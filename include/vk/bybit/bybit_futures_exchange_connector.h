@@ -6,7 +6,6 @@ SPDX-License-Identifier: MIT
 Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@gmail.com>.
 */
 
-
 #ifndef INCLUDE_VK_BYBIT_EXCHANGE_CONNECTOR_H
 #define INCLUDE_VK_BYBIT_EXCHANGE_CONNECTOR_H
 
@@ -25,7 +24,7 @@ public:
 
     ~BybitFuturesExchangeConnector() override;
 
-    [[nodiscard]] std::string name() const override;
+    [[nodiscard]] std::string exchangeId() const override;
 
     [[nodiscard]] std::string version() const override;
 
@@ -39,10 +38,9 @@ public:
 
     [[nodiscard]] Balance getAccountBalance(const std::string &currency) const override;
 
-    [[nodiscard]] FundingRate getLastFundingRate(const std::string &symbol) const override;
+    [[nodiscard]] FundingRate getFundingRate(const std::string &symbol) const override;
 
-    [[nodiscard]] std::vector<FundingRate> getFundingRates(const std::string &symbol, std::int64_t startTime,
-                                                           std::int64_t endTime) const override;
+    [[nodiscard]] std::vector<FundingRate> getFundingRates() const override;
 
     [[nodiscard]] std::vector<Ticker> getTickerInfo(const std::string& symbol) const override;
 
@@ -56,8 +54,8 @@ public:
 BOOST_SYMBOL_EXPORT IModuleFactory *getModuleFactory() {
     if (!g_moduleFactory) {
         FactoryInfo factoryInfo;
-        factoryInfo.m_description = std::string(magic_enum::enum_name(ExchangeId::BybitFutures));
-        factoryInfo.m_version = "1.0.0";
+        factoryInfo.m_id = std::string(magic_enum::enum_name(ExchangeId::BybitFutures));
+        factoryInfo.m_description = "Bybit CEX - Futures";
 
         g_moduleFactory = new ModuleFactory(factoryInfo);
         g_moduleFactory->registerClassByName<IExchangeConnector>(

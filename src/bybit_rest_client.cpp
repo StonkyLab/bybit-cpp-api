@@ -404,4 +404,19 @@ RESTClient::getFundingRates(const Category category,
     std::ranges::reverse(retVal);
     return retVal;
 }
+
+std::vector<Ticker>  RESTClient::getTickers(const Category category, const std::string& symbol) const {
+    const std::string path = "/v5/market/tickers";
+
+    std::map<std::string, std::string> parameters;
+    parameters.insert_or_assign("category", magic_enum::enum_name(category));
+    parameters.insert_or_assign("symbol", symbol);
+
+    if (const auto response = P::checkResponse(m_p->m_httpSession->get(path, parameters)); !handleBybitResponse<
+        OrdersResponse>(response).m_orders.empty()) {
+        return handleBybitResponse<Tickers>(response).m_tickers;
+    }
+
+    return {};
+}
 }

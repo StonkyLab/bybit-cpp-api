@@ -162,7 +162,7 @@ void measureRestResponses() {
     }
 }
 
-double round_to(const double value, double precision = 1.0) {
+double round_to(const double value, const double precision = 1.0) {
     return std::round(value / precision) * precision;
 }
 
@@ -277,12 +277,27 @@ void testWebsockets() {
     }
 }
 
+void testTickers() {
+    const auto [fst, snd] = readCredentials();
+    const auto restClient = std::make_shared<RESTClient>(fst, snd);
+
+    try {
+        const auto tme = restClient->getServerTime();
+        auto response = restClient->getTickers(Category::linear, "BTCUSDT");
+        logFunction(vk::LogSeverity::Info, fmt::format("Ticker: {}, fr: {}", response[0].m_symbol, response[0].m_fundingRate));
+    }
+    catch (std::exception& e) {
+        logFunction(vk::LogSeverity::Warning, fmt::format("Exception: {}", e.what()));
+    }
+}
+
 int main() {
     // measureRestResponses();
     // testWebsockets();
     // setPositionMode();
     // positions();
     // testOrders();
+    testTickers();
     testHistory();
     return getchar();
 }

@@ -458,4 +458,45 @@ void FundingRates::fromJson(const nlohmann::json& json) {
         m_fundingRates.push_back(fundingRate);
     }
 }
+
+nlohmann::json Ticker::toJson() const {
+    throw std::runtime_error("Unimplemented: Ticker::toJson()");
+}
+
+void Ticker::fromJson(const nlohmann::json& json) {
+    readValue<std::string>(json, "symbol", m_symbol);
+    m_lastPrice = readStringAsDouble(json, "lastPrice", m_lastPrice);
+    m_indexPrice = readStringAsDouble(json, "indexPrice", m_indexPrice);
+    m_marktPrice = readStringAsDouble(json, "marktPrice", m_marktPrice);
+    m_prevPrice24h = readStringAsDouble(json, "prevPrice24h", m_prevPrice24h);
+    m_price24hPcnt = readStringAsDouble(json, "price24hPcnt", m_price24hPcnt);
+    m_highPrice24h = readStringAsDouble(json, "highPrice24h", m_highPrice24h);
+    m_prevPrice1h = readStringAsDouble(json, "prevPrice1h", m_prevPrice1h);
+    m_openInterest = readStringAsInt64(json, "openInterest", m_openInterest);
+    m_openInterestValue = readStringAsDouble(json, "openInterestValue", m_openInterestValue);
+    m_turnover24h = readStringAsDouble(json, "turnover24h", m_turnover24h);
+    m_volume24h = readStringAsDouble(json, "volume24h", m_volume24h);
+    m_fundingRate = readStringAsDouble(json, "fundingRate", m_fundingRate);
+    m_nextFundingTime = readStringAsInt64(json, "nextFundingTime", m_nextFundingTime);
+    m_ask1Size = readStringAsDouble(json, "ask1Size", m_ask1Size);
+    m_bid1Price = readStringAsDouble(json, "bid1Price", m_bid1Price);
+    m_ask1Price = readStringAsDouble(json, "ask1Price", m_ask1Price);
+    m_bid1Size = readStringAsDouble(json, "bid1Size", m_bid1Size);
+}
+
+nlohmann::json Tickers::toJson() const {
+    throw std::runtime_error("Unimplemented: Tickers::toJson()");
+}
+
+void Tickers::fromJson(const nlohmann::json& json) {
+    Response::fromJson(json);
+
+    readMagicEnum<Category>(m_result, "category", m_category);
+
+    for (const auto& el : m_result["list"].items()) {
+        Ticker ticker;
+        ticker.fromJson(el.value());
+        m_tickers.push_back(ticker);
+    }
+}
 }

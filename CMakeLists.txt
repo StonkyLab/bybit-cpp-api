@@ -34,7 +34,7 @@ set(HEADERS
         include/vk/bybit/bybit_ws_session.h
         include/vk/bybit/bybit_ws_stream_manager.h
         include/vk/bybit/bybit_event_models.h
-        include/vk/bybit/bybit_exchange_connector.h)
+        include/vk/bybit/bybit_futures_exchange_connector.h)
 
 set(SOURCES
         src/bybit.cpp
@@ -45,7 +45,7 @@ set(SOURCES
         src/bybit_ws_session.cpp
         src/bybit_ws_stream_manager.cpp
         src/bybit_event_models.cpp
-        src/bybit_exchange_connector.cpp)
+        src/bybit_futures_exchange_connector.cpp)
 
 if (MODULE_MANAGER)
     add_library(bybit_api SHARED ${SOURCES} ${HEADERS})
