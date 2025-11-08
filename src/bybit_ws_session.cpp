@@ -12,6 +12,7 @@ Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@gmail.com>.
 #include <nlohmann/json.hpp>
 #include <boost/asio/buffers_iterator.hpp>
 #include <boost/asio/strand.hpp>
+#include <boost/asio/basic_deadline_timer.hpp>
 
 namespace vk::bybit {
 static constexpr int PING_INTERVAL_IN_S = 20;
@@ -307,7 +308,7 @@ void WebSocketSession::ping() {
     }
 
     if (m_ws.is_open()) {
-        const boost::beast::websocket::ping_data pingWebSocketFrame;
+        constexpr boost::beast::websocket::ping_data pingWebSocketFrame;
         m_ws.async_ping(pingWebSocketFrame, [this](const boost::beast::error_code& ec) {
                             if (ec) {
                                 m_logMessageCB(LogSeverity::Error, fmt::format("{}: {}", MAKE_FILELINE, ec.message()));
@@ -339,7 +340,7 @@ void WebSocketSession::onPingTimer(const boost::beast::error_code& ec) {
     }
 
     ping();
-    m_pingTimer.expires_from_now(boost::asio::chrono::seconds(PING_INTERVAL_IN_S));
+    m_pingTimer.expires_after(boost::asio::chrono::seconds(PING_INTERVAL_IN_S));
     m_pingTimer.async_wait(boost::beast::bind_front_handler(&WebSocketSession::onPingTimer, shared_from_this()));
 }
 }

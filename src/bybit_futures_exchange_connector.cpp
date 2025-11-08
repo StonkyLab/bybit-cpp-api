@@ -11,14 +11,15 @@ Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@gmail.com>.
 
 namespace vk {
 struct BybitFuturesExchangeConnector::P {
-    std::shared_ptr<bybit::RESTClient> restClient{};
+    std::unique_ptr<bybit::RESTClient> m_restClient{};
 };
 
 BybitFuturesExchangeConnector::BybitFuturesExchangeConnector() : m_p(std::make_unique<P>()) {
+    m_p->m_restClient = std::make_unique<bybit::RESTClient>("","");
 }
 
 BybitFuturesExchangeConnector::~BybitFuturesExchangeConnector() {
-    m_p->restClient.reset();
+    m_p->m_restClient.reset();
 }
 
 std::string BybitFuturesExchangeConnector::exchangeId() const {
@@ -33,8 +34,8 @@ void BybitFuturesExchangeConnector::setLoggerCallback(const onLogMessage& onLogM
 }
 
 void BybitFuturesExchangeConnector::login(const std::tuple<std::string, std::string, std::string>& credentials) {
-    m_p->restClient.reset();
-    m_p->restClient = std::make_shared<bybit::RESTClient>(std::get<0>(credentials),
+    m_p->m_restClient.reset();
+    m_p->m_restClient = std::make_unique<bybit::RESTClient>(std::get<0>(credentials),
                                                           std::get<1>(credentials));
 }
 
@@ -54,7 +55,7 @@ Balance BybitFuturesExchangeConnector::getAccountBalance(const std::string& curr
 }
 
 FundingRate BybitFuturesExchangeConnector::getFundingRate(const std::string& symbol) const {
-    if (const auto tickers = m_p->restClient->getTickers(bybit::Category::linear, symbol); !tickers.empty()) {
+    if (const auto tickers = m_p->m_restClient->getTickers(bybit::Category::linear, symbol); !tickers.empty()) {
         return {tickers[0].m_symbol, tickers[0].m_fundingRate, tickers[0].m_nextFundingTime};
     }
 
@@ -64,7 +65,7 @@ FundingRate BybitFuturesExchangeConnector::getFundingRate(const std::string& sym
 std::vector<FundingRate> BybitFuturesExchangeConnector::getFundingRates() const {
     std::vector<FundingRate> retVal;
 
-    for (const auto& ticker : m_p->restClient->getTickers(bybit::Category::linear, "")) {
+    for (const auto& ticker : m_p->m_restClient->getTickers(bybit::Category::linear, "")) {
         FundingRate fr = {ticker.m_symbol, ticker.m_fundingRate, ticker.m_nextFundingTime};
         retVal.push_back(fr);
     }
@@ -77,6 +78,6 @@ std::vector<Ticker> BybitFuturesExchangeConnector::getTickerInfo(const std::stri
 }
 
 std::int64_t BybitFuturesExchangeConnector::getServerTime() const {
-    return m_p->restClient->getServerTime();
+    return m_p->m_restClient->getServerTime();
 }
 }
