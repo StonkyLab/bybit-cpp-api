@@ -9,7 +9,6 @@ Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@gmail.com>.
 #include "vk/bybit/bybit_ws_session.h"
 #include "vk/utils/log_utils.h"
 #include "vk/utils/json_utils.h"
-#include <fmt/format.h>
 #include <nlohmann/json.hpp>
 #include <boost/asio/buffers_iterator.hpp>
 #include <boost/asio/strand.hpp>

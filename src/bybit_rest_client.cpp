@@ -10,7 +10,6 @@ Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@gmail.com>.
 #include "vk/bybit/bybit_http_session.h"
 #include "vk/bybit/bybit.h"
 #include "vk/utils/utils.h"
-#include <fmt/format.h>
 #include <mutex>
 
 namespace vk::bybit {

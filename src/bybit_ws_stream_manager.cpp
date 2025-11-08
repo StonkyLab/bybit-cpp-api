@@ -11,7 +11,6 @@ Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@gmail.com>.
 #include "vk/bybit/bybit_ws_client.h"
 #include "vk/utils/utils.h"
 #include <mutex>
-#include <fmt/format.h>
 #include <thread>
 
 using namespace std::chrono_literals;
