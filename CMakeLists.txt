@@ -54,6 +54,9 @@ else ()
 
     add_executable(bybit_test test/main.cpp)
     target_link_libraries(bybit_test PRIVATE spdlog::spdlog bybit_api)
+
+    add_executable(bybit_benchmark test/benchmark.cpp)
+    target_link_libraries(bybit_benchmark PRIVATE spdlog::spdlog bybit_api)
 endif ()
 
 target_link_libraries(bybit_api PRIVATE spdlog::spdlog OpenSSL::Crypto OpenSSL::SSL vk_common nlohmann_json::nlohmann_json)

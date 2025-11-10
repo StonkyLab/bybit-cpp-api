@@ -14,7 +14,6 @@
 #include <boost/multiprecision/cpp_dec_float.hpp>
 
 using namespace vk::bybit;
-using namespace vk::bybit;
 using namespace std::chrono_literals;
 
 constexpr int HISTORY_LENGTH_IN_S = 86400; // 1 day
@@ -108,7 +107,6 @@ void testHistory() {
         logFunction(vk::LogSeverity::Critical, e.what());
     }
 }
-
 
 void measureRestResponses() {
     const auto [fst, snd] = readCredentials();
