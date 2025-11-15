@@ -321,7 +321,7 @@ struct Ticker final : IJson {
     std::string m_symbol{};
     double m_lastPrice{};
     double m_indexPrice{};
-    double m_marktPrice{};
+    double m_markPrice{};
     double m_prevPrice24h{};
     double m_price24hPcnt{};
     double m_highPrice24h{};

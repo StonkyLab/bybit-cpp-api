@@ -464,10 +464,11 @@ nlohmann::json Ticker::toJson() const {
 }
 
 void Ticker::fromJson(const nlohmann::json& json) {
+
     readValue<std::string>(json, "symbol", m_symbol);
     m_lastPrice = readStringAsDouble(json, "lastPrice", m_lastPrice);
     m_indexPrice = readStringAsDouble(json, "indexPrice", m_indexPrice);
-    m_marktPrice = readStringAsDouble(json, "marktPrice", m_marktPrice);
+    m_markPrice = readStringAsDouble(json, "markPrice", m_markPrice);
     m_prevPrice24h = readStringAsDouble(json, "prevPrice24h", m_prevPrice24h);
     m_price24hPcnt = readStringAsDouble(json, "price24hPcnt", m_price24hPcnt);
     m_highPrice24h = readStringAsDouble(json, "highPrice24h", m_highPrice24h);

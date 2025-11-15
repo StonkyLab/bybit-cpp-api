@@ -282,7 +282,7 @@ void testTickers() {
     try {
         const auto tme = restClient->getServerTime();
         auto response = restClient->getTickers(Category::linear, "BTCUSDT");
-        logFunction(vk::LogSeverity::Info, fmt::format("Ticker: {}, fr: {}", response[0].m_symbol, response[0].m_fundingRate));
+        logFunction(vk::LogSeverity::Info, fmt::format("Ticker: {}, fr: {}", response.m_tickers[0].m_symbol, response.m_tickers[0].m_fundingRate));
     }
     catch (std::exception& e) {
         logFunction(vk::LogSeverity::Warning, fmt::format("Exception: {}", e.what()));

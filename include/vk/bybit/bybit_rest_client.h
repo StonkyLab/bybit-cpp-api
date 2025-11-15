@@ -190,7 +190,7 @@ public:
      * @return vector of Ticker structures
      * @see https://bybit-exchange.github.io/docs/v5/market/tickers
      */
-    [[nodiscard]] std::vector<Ticker> getTickers(Category category, const std::string& symbol) const;
+    [[nodiscard]] Tickers getTickers(Category category, const std::string& symbol) const;
 };
 }
 

@@ -46,7 +46,19 @@ Trade BybitFuturesExchangeConnector::placeOrder(const Order& order) {
 
 TickerPrice BybitFuturesExchangeConnector::getTickerPrice(const std::string& symbol) const {
     TickerPrice retVal;
-    throw std::runtime_error("Unimplemented: BybitFuturesExchangeConnector::getTickerPrice");
+
+    for (const auto tickers = m_p->m_restClient->getTickers(bybit::Category::linear, symbol); const auto& ticker : tickers.m_tickers) {
+
+        if (ticker.m_symbol == symbol) {
+            retVal.askPrice = ticker.m_ask1Price;
+            retVal.bidPrice = ticker.m_bid1Price;
+            retVal.askQty = ticker.m_ask1Size;
+            retVal.bidQty = ticker.m_bid1Size;
+            retVal.time = tickers.m_time;
+        }
+    }
+
+    return retVal;
 }
 
 Balance BybitFuturesExchangeConnector::getAccountBalance(const std::string& currency) const {
@@ -55,7 +67,7 @@ Balance BybitFuturesExchangeConnector::getAccountBalance(const std::string& curr
 }
 
 FundingRate BybitFuturesExchangeConnector::getFundingRate(const std::string& symbol) const {
-    if (const auto tickers = m_p->m_restClient->getTickers(bybit::Category::linear, symbol); !tickers.empty()) {
+    if (const auto tickers = m_p->m_restClient->getTickers(bybit::Category::linear, symbol).m_tickers; !tickers.empty()) {
         return {tickers[0].m_symbol, tickers[0].m_fundingRate, tickers[0].m_nextFundingTime};
     }
 
@@ -65,7 +77,7 @@ FundingRate BybitFuturesExchangeConnector::getFundingRate(const std::string& sym
 std::vector<FundingRate> BybitFuturesExchangeConnector::getFundingRates() const {
     std::vector<FundingRate> retVal;
 
-    for (const auto& ticker : m_p->m_restClient->getTickers(bybit::Category::linear, "")) {
+    for (const auto& ticker : m_p->m_restClient->getTickers(bybit::Category::linear, "").m_tickers) {
         FundingRate fr = {ticker.m_symbol, ticker.m_fundingRate, ticker.m_nextFundingTime};
         retVal.push_back(fr);
     }
