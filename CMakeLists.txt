@@ -1,10 +1,10 @@
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.30)
 project(bybit_api)
 
 set(CMAKE_CXX_STANDARD 20)
 
 if (MSVC)
-    add_definitions(-D_WIN32_WINNT=0x0A00 /bigobj -DVERBOSE_LOG)
+    add_definitions(-D_WIN32_WINNT=0x0A00 /bigobj /utf-8 -DVERBOSE_LOG)
 else ()
     add_definitions(-fPIC)
 endif ()
@@ -53,10 +53,10 @@ else ()
     add_library(bybit_api STATIC ${SOURCES} ${HEADERS})
 
     add_executable(bybit_test test/main.cpp)
-    target_link_libraries(bybit_test PRIVATE spdlog::spdlog bybit_api)
+    target_link_libraries(bybit_test PRIVATE spdlog::spdlog_header_only bybit_api)
 
     add_executable(bybit_benchmark test/benchmark.cpp)
-    target_link_libraries(bybit_benchmark PRIVATE spdlog::spdlog bybit_api)
+    target_link_libraries(bybit_benchmark PRIVATE spdlog::spdlog_header_only bybit_api)
 endif ()
 
-target_link_libraries(bybit_api PRIVATE spdlog::spdlog OpenSSL::Crypto OpenSSL::SSL vk_common nlohmann_json::nlohmann_json)
+target_link_libraries(bybit_api PRIVATE spdlog::spdlog_header_only OpenSSL::Crypto OpenSSL::SSL vk_common nlohmann_json::nlohmann_json)
