@@ -215,6 +215,7 @@ struct Instrument final : IJson {
 struct Instruments final : Response {
     Category m_category{Category::linear};
     std::vector<Instrument> m_instruments{};
+    std::string m_nextPageCursor{};
 
     [[nodiscard]] nlohmann::json toJson() const override;
 

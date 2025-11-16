@@ -272,6 +272,7 @@ void Instruments::fromJson(const nlohmann::json& json) {
     Response::fromJson(json);
 
     readMagicEnum<Category>(m_result, "category", m_category);
+    readValue<std::string>(m_result, "nextPageCursor", m_nextPageCursor);
 
     for (const auto& el : m_result["list"].items()) {
         Instrument instrument;
