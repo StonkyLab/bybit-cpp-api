@@ -154,7 +154,8 @@ RESTClient::getHistoricalPrices(const Category category,
                                 const CandleInterval interval,
                                 std::int64_t from,
                                 const std::int64_t to,
-                                const std::int32_t limit) const {
+                                const std::int32_t limit,
+                                const onCandlesDownloaded &writer) const {
 	std::vector<Candle> retVal;
 	std::vector<Candle> candles = m_p->getHistoricalPrices(category, symbol, interval, from, limit);
 
@@ -177,6 +178,9 @@ RESTClient::getHistoricalPrices(const Category category,
 		retVal.insert(retVal.end(), candles.begin(), candles.end());
 		from = last.m_startTime + Bybit::numberOfMsForCandleInterval(interval);
 
+		if (writer) {
+			writer(candles);
+		}
 		candles.clear();
 		candles = m_p->getHistoricalPrices(category, symbol, interval, from, limit);
 	}

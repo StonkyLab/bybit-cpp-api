@@ -15,6 +15,9 @@ Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@gmail.com>.
 #include <optional>
 
 namespace vk::bybit {
+
+using onCandlesDownloaded = std::function<void(const std::vector<Candle>&)>;
+
 class RESTClient {
     struct P;
     std::unique_ptr<P> m_p{};
@@ -39,6 +42,7 @@ public:
      * @param from timestamp in ms, must be smaller than "to"
      * @param to timestamp in ms, must be bigger than "from"
      * @param limit maximum number of returned candles, maximum and also the default values is 200
+     * @param writer
      * @return vector of Candle structures
      * @throws nlohmann::json::exception, std::exception
      * @see https://bybit-exchange.github.io/docs/v5/market/kline
@@ -46,7 +50,7 @@ public:
     [[nodiscard]] std::vector<Candle>
     getHistoricalPrices(Category category, const std::string& symbol, CandleInterval interval, std::int64_t from,
                         std::int64_t to,
-                        std::int32_t limit = 200) const;
+                        std::int32_t limit = 200, const onCandlesDownloaded &writer = {}) const;
 
     /**
      * Get wallet balance info
