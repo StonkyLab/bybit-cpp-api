@@ -259,7 +259,11 @@ void Instrument::fromJson(const nlohmann::json& json) {
     readValue<bool>(json, "unifiedMarginTrade", m_unifiedMarginTrade);
     readValue<int>(json, "fundingInterval", m_fundingInterval);
     readValue<std::string>(json, "settleCoin", m_settleCoin);
-    m_leverageFilter.fromJson(json["leverageFilter"]);
+
+    if (json.contains("leverageFilter")) {
+      m_leverageFilter.fromJson(json["leverageFilter"]);
+    }
+
     m_priceFilter.fromJson(json["priceFilter"]);
     m_lotSizeFilter.fromJson(json["lotSizeFilter"]);
 }
