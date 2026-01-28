@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.30)
+cmake_minimum_required(VERSION 4.00)
 project(bybit_api)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -13,7 +13,7 @@ if (POLICY CMP0167)
     cmake_policy(SET CMP0167 NEW)
 endif ()
 
-find_package(Boost 1.83 REQUIRED)
+find_package(Boost 1.88 REQUIRED)
 find_package(OpenSSL REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)

@@ -11,6 +11,8 @@ Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@gmail.com>.
 #include "vk/bybit/bybit.h"
 #include "vk/utils/utils.h"
 #include <mutex>
+#include <spdlog/spdlog.h>
+#include <deque>
 
 namespace vk::bybit {
 template<typename ValueType>
@@ -26,14 +28,91 @@ ValueType handleBybitResponse(const http::response<http::string_body> &response)
 	return retVal;
 }
 
+
+struct RateLimiter {
+	std::mutex m_mutex;
+	int m_remaining = 50; 
+	std::int64_t m_resetTime = 0;
+    
+    // Local fallback mechanism
+    bool m_serverHeadersFound = false;
+    std::deque<std::int64_t> m_requestTimes; // For local sliding window
+    const size_t m_localLimit = 100;          // 100 requests per second
+    const std::int64_t m_windowSizeMs = 1000;
+
+	void update(const http::response<http::string_body> &response) {
+		std::lock_guard lock(m_mutex);
+		try {
+			// Headers are case-insensitive in Boost.Beast
+			const auto itStatus = response.find("X-Bapi-Limit-Status");
+
+			if (const auto itReset = response.find("X-Bapi-Limit-Reset"); itStatus != response.end() && itReset != response.end()) {
+                m_remaining = std::stoi(std::string(itStatus->value()));
+                m_resetTime = std::stoll(std::string(itReset->value()));
+                m_serverHeadersFound = true; // Switch to server-side mode
+            }
+			
+			// Log for debugging
+#ifdef VERBOSE_LOG
+			spdlog::debug("RateLimit: Remaining={}, ResetTime={}, LocalMode={}", m_remaining, m_resetTime, !m_serverHeadersFound);
+#endif
+		} catch (const std::exception& e) {
+			spdlog::warn("Failed to parse rate limit headers: {}", e.what());
+		}
+	}
+
+	void wait() {
+		std::unique_lock lock(m_mutex);
+        const auto now = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count();
+
+        if (m_serverHeadersFound) {
+            // Server-side logic
+            if (m_remaining <= 2) { 
+                if (m_resetTime > now) {
+                    const auto waitTime = m_resetTime - now + 50; // +50ms buffer
+                    spdlog::info("Rate limit reached (Server). Waiting for {} ms", waitTime);
+                    std::this_thread::sleep_for(std::chrono::milliseconds(waitTime));
+                }
+            }
+        } else {
+            // Local fallback logic (Sliding Window)
+            // Remove old requests
+            while (!m_requestTimes.empty() && now - m_requestTimes.front() > m_windowSizeMs) {
+                m_requestTimes.pop_front();
+            }
+
+            if (m_requestTimes.size() >= m_localLimit) {
+                // Wait until the oldest request expires
+                const auto oldest = m_requestTimes.front();
+
+                if (const auto waitTime = (oldest + m_windowSizeMs) - now + 10; waitTime > 0) {
+                    spdlog::info("Rate limit reached (Local). Waiting for {} ms", waitTime);
+                    std::this_thread::sleep_for(std::chrono::milliseconds(waitTime));
+                    
+                    // After sleeping, we must remove the expired request and add current one
+                    // Update now after sleep
+                     const auto nowAfterWait = std::chrono::duration_cast<std::chrono::milliseconds>(
+                        std::chrono::system_clock::now().time_since_epoch()).count();
+                     while (!m_requestTimes.empty() && nowAfterWait - m_requestTimes.front() > m_windowSizeMs) {
+                        m_requestTimes.pop_front();
+                    }
+                }
+            }
+            m_requestTimes.push_back(now);
+        }
+	}
+};
+
 struct RESTClient::P {
 private:
 	Instruments m_instruments;
 	mutable std::recursive_mutex m_locker;
-
+    
 public:
 	RESTClient *m_parent = nullptr;
 	std::shared_ptr<HTTPSession> m_httpSession;
+	mutable RateLimiter m_rateLimiter; // Add RateLimiter
 
 	explicit P(RESTClient *parent) {
 		m_parent = parent;
@@ -68,7 +147,10 @@ public:
 		return false;
 	}
 
-	static http::response<http::string_body> checkResponse(const http::response<http::string_body> &response) {
+	http::response<http::string_body> checkResponse(const http::response<http::string_body> &response) const {
+        // Update rate limiter with headers from response
+        m_rateLimiter.update(response);
+
 		if (response.result() != http::status::ok) {
 			throw std::runtime_error(
 				fmt::format("Bad response, code {}, msg: {}", response.result_int(), response.body()).c_str());
@@ -92,6 +174,9 @@ public:
 		if (limit != 200) {
 			parameters.insert_or_assign("limit", std::to_string(limit));
 		}
+        
+        // Wait if rate limited
+        m_rateLimiter.wait();
 
 		const auto response = checkResponse(m_httpSession->get(path, parameters));
 		return handleBybitResponse<Candles>(response).m_candles;
@@ -113,6 +198,9 @@ public:
 			parameters.insert_or_assign("limit", std::to_string(limit));
 		}
 
+        // Wait if rate limited
+        m_rateLimiter.wait();
+
 		const auto response = checkResponse(m_httpSession->get(path, parameters));
 		return handleBybitResponse<FundingRates>(response).m_fundingRates;
 	}
@@ -130,6 +218,9 @@ public:
 		if (!cursor.empty()) {
 			parameters.insert_or_assign("cursor", cursor);
 		}
+        
+        // Wait if rate limited
+        m_rateLimiter.wait();
 
 		const auto response = checkResponse(m_httpSession->get(path, parameters));
 		return handleBybitResponse<Instruments>(response);
@@ -210,7 +301,8 @@ WalletBalance RESTClient::getWalletBalance(const AccountType accountType, const 
 		parameters.insert_or_assign("coin", coin);
 	}
 
-	const auto response = P::checkResponse(m_p->m_httpSession->get(path, parameters));
+    m_p->m_rateLimiter.wait();
+	const auto response = m_p->checkResponse(m_p->m_httpSession->get(path, parameters));
 	return handleBybitResponse<WalletBalance>(response);
 }
 
@@ -218,7 +310,8 @@ std::int64_t RESTClient::getServerTime() const {
 	const std::string path = "/v5/market/time";
 	const std::map<std::string, std::string> parameters;
 
-	const auto response = P::checkResponse(m_p->m_httpSession->get(path, parameters));
+    m_p->m_rateLimiter.wait();
+	const auto response = m_p->checkResponse(m_p->m_httpSession->get(path, parameters));
 	const auto timeResponse = handleBybitResponse<ServerTime>(response);
 
 	return timeResponse.m_timeNano / 1000000;
@@ -234,7 +327,8 @@ std::vector<Position> RESTClient::getPositionInfo(const Category category, const
 		parameters.insert_or_assign("symbol", symbol);
 	}
 
-	const auto response = P::checkResponse(m_p->m_httpSession->get(path, parameters));
+    m_p->m_rateLimiter.wait();
+	const auto response = m_p->checkResponse(m_p->m_httpSession->get(path, parameters));
 	return handleBybitResponse<Positions>(response).m_positions;
 }
 
@@ -280,7 +374,8 @@ bool RESTClient::setPositionMode(Category category,
 	auto payload = nlohmann::json(parameters);
 	payload["mode"] = positionMode;
 
-	const auto response = P::checkResponse(m_p->m_httpSession->post(path, payload));
+    m_p->m_rateLimiter.wait();
+	const auto response = m_p->checkResponse(m_p->m_httpSession->post(path, payload));
 
 	try {
 		return handleBybitResponse<Response>(response).m_retMsg == "OK";
@@ -307,7 +402,8 @@ OrderId RESTClient::placeOrder(Order &order) const {
 	order.m_priceStep = priceStep;
 	order.m_qtyStep = qtyStep;
 
-	const auto response = P::checkResponse(m_p->m_httpSession->post(path, order.toJson()));
+    m_p->m_rateLimiter.wait();
+	const auto response = m_p->checkResponse(m_p->m_httpSession->post(path, order.toJson()));
 	return handleBybitResponse<OrderId>(response);
 }
 
@@ -317,7 +413,8 @@ std::vector<OrderResponse> RESTClient::getOpenOrders(const Category category, co
 	parameters.insert_or_assign("category", magic_enum::enum_name(category));
 	parameters.insert_or_assign("symbol", symbol);
 
-	const auto response = P::checkResponse(m_p->m_httpSession->get(path, parameters));
+    m_p->m_rateLimiter.wait();
+	const auto response = m_p->checkResponse(m_p->m_httpSession->get(path, parameters));
 	return handleBybitResponse<OrdersResponse>(response).m_orders;
 }
 
@@ -333,7 +430,8 @@ RESTClient::getOpenOrder(const Category category,
 	parameters.insert_or_assign("orderId", orderId);
 	parameters.insert_or_assign("orderLinkId", orderLinkId);
 
-	if (const auto response = P::checkResponse(m_p->m_httpSession->get(path, parameters)); !handleBybitResponse<
+    m_p->m_rateLimiter.wait();
+	if (const auto response = m_p->checkResponse(m_p->m_httpSession->get(path, parameters)); !handleBybitResponse<
 		OrdersResponse>(response).m_orders.empty()) {
 		return handleBybitResponse<OrdersResponse>(response).m_orders.front();
 	}
@@ -352,7 +450,8 @@ std::vector<OrderId> RESTClient::cancelAllOrders(Category category, const std::s
 		parameters.insert_or_assign("symbol", symbol);
 	}
 
-	const auto response = P::checkResponse(m_p->m_httpSession->post(path, nlohmann::json(parameters)));
+    m_p->m_rateLimiter.wait();
+	const auto response = m_p->checkResponse(m_p->m_httpSession->post(path, nlohmann::json(parameters)));
 
 	for (const auto result = handleBybitResponse<Response>(response).m_result; const auto &el: result["list"].
 	     items()) {
@@ -382,7 +481,8 @@ OrderId RESTClient::cancelOrder(const Category category,
 		parameters.insert_or_assign("orderLinkId", orderId);
 	}
 
-	const auto response = P::checkResponse(m_p->m_httpSession->post(path, nlohmann::json(parameters)));
+    m_p->m_rateLimiter.wait();
+	const auto response = m_p->checkResponse(m_p->m_httpSession->post(path, nlohmann::json(parameters)));
 	return handleBybitResponse<OrderId>(response);
 }
 
@@ -444,7 +544,8 @@ Tickers RESTClient::getTickers(const Category category, const std::string &symbo
 	parameters.insert_or_assign("category", magic_enum::enum_name(category));
 	parameters.insert_or_assign("symbol", symbol);
 
-	const auto response = P::checkResponse(m_p->m_httpSession->get(path, parameters));
+    m_p->m_rateLimiter.wait();
+	const auto response = m_p->checkResponse(m_p->m_httpSession->get(path, parameters));
 	return handleBybitResponse<Tickers>(response);
 }
 }
