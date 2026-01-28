@@ -160,10 +160,20 @@ RESTClient::getHistoricalPrices(const Category category,
 	std::vector<Candle> candles = m_p->getHistoricalPrices(category, symbol, interval, from, limit);
 
 	while (!candles.empty()) {
+
 		std::ranges::reverse(candles);
+
+		if ((candles.back().m_startTime - to) < 60000) {
+			candles.pop_back();
+		}
+
+		if (candles.empty()) {
+			break;
+		}
 
 		const auto first = candles.front();
 		const auto last = candles.back();
+
 
 		if (to < last.m_startTime) {
 			for (const auto &candle: candles) {
@@ -171,7 +181,9 @@ RESTClient::getHistoricalPrices(const Category category,
 					retVal.push_back(candle);
 				}
 			}
-
+			if (writer) {
+				writer(candles);
+			}
 			break;
 		}
 
