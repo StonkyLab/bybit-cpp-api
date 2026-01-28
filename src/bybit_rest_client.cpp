@@ -163,7 +163,7 @@ RESTClient::getHistoricalPrices(const Category category,
 
 		std::ranges::reverse(candles);
 
-		if ((candles.back().m_startTime - to) < 60000) {
+		if ((candles.back().m_startTime - to) < Bybit::numberOfMsForCandleInterval(interval)) {
 			candles.pop_back();
 		}
 
