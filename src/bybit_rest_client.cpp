@@ -70,7 +70,9 @@ struct RateLimiter {
             if (remaining <= 2) {
                 if (resetTime > now) {
                     const auto waitTime = resetTime - now + 50; // +50ms buffer
+#ifdef VERBOSE_LOG
                     spdlog::info("Rate limit reached (Server). Waiting for {} ms", waitTime);
+#endif
                     std::this_thread::sleep_for(std::chrono::milliseconds(waitTime));
                 }
             }
@@ -86,7 +88,9 @@ struct RateLimiter {
                 const auto oldest = requestTimes.front();
 
                 if (const auto waitTime = (oldest + windowSizeMs) - now + 10; waitTime > 0) {
+#ifdef VERBOSE_LOG
                     spdlog::info("Rate limit reached (Local). Waiting for {} ms", waitTime);
+#endif
                     std::this_thread::sleep_for(std::chrono::milliseconds(waitTime));
                     
                     // After sleeping, we must remove the expired request and add current one
