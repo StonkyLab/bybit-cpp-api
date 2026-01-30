@@ -32,16 +32,16 @@ nlohmann::json Response::toJson() const {
 }
 
 void Response::fromJson(const nlohmann::json& json) {
-    readValue<int>(json, "retCode", m_retCode);
+    readValue<int>(json, "retCode", retCode);
 
     if (json.contains("retExtInfo")) {
-        m_retExtInfo = json["retExtInfo"];
+        retExtInfo = json["retExtInfo"];
     }
-    readValue<std::string>(json, "retMsg", m_retMsg);
-    readValue<std::int64_t>(json, "time", m_time);
+    readValue<std::string>(json, "retMsg", retMsg);
+    readValue<std::int64_t>(json, "time", time);
 
     if (json.contains("result")) {
-        m_result = json["result"];
+        result = json["result"];
     }
 }
 
@@ -50,13 +50,13 @@ nlohmann::json Candle::toJson() const {
 }
 
 void Candle::fromJson(const nlohmann::json& json) {
-    m_startTime = stoll(json[0].get<std::string>());
-    m_open = stod(json[1].get<std::string>());
-    m_high = stod(json[2].get<std::string>());
-    m_low = stod(json[3].get<std::string>());
-    m_close = stod(json[4].get<std::string>());
-    m_volume = stod(json[5].get<std::string>());
-    m_turnover = stod(json[6].get<std::string>());
+    startTime = stoll(json[0].get<std::string>());
+    open = stod(json[1].get<std::string>());
+    high = stod(json[2].get<std::string>());
+    low = stod(json[3].get<std::string>());
+    close = stod(json[4].get<std::string>());
+    volume = stod(json[5].get<std::string>());
+    turnover = stod(json[6].get<std::string>());
 }
 
 nlohmann::json Candles::toJson() const {
@@ -65,13 +65,13 @@ nlohmann::json Candles::toJson() const {
 
 void Candles::fromJson(const nlohmann::json& json) {
     Response::fromJson(json);
-    readValue<std::string>(m_result, "symbol", m_symbol);
-    readMagicEnum<Category>(m_result, "category", m_category);
+    readValue<std::string>(result, "symbol", symbol);
+    readMagicEnum<Category>(result, "category", category);
 
-    for (const auto& el : m_result["list"].items()) {
+    for (const auto& el : result["list"].items()) {
         Candle candle;
         candle.fromJson(el.value());
-        m_candles.push_back(candle);
+        candles.push_back(candle);
     }
 }
 
@@ -80,23 +80,23 @@ nlohmann::json Coin::toJson() const {
 }
 
 void Coin::fromJson(const nlohmann::json& json) {
-    m_accruedInterest = readStringAsDouble(json, "accruedInterest", m_accruedInterest);
-    m_availableToBorrow = readStringAsDouble(json, "availableToBorrow", m_availableToBorrow);
-    m_availableToWithdraw = readStringAsDouble(json, "availableToWithdraw", m_availableToWithdraw);
-    m_bonus = readStringAsDouble(json, "bonus", m_bonus);
-    m_borrowAmount = readStringAsDouble(json, "borrowAmount", m_borrowAmount);
-    readValue<std::string>(json, "coin", m_coin);
-    readValue<bool>(json, "collateralSwitch", m_collateralSwitch);
-    m_cumRealisedPnl = readStringAsDouble(json, "cumRealisedPnl", m_cumRealisedPnl);
-    m_equity = readStringAsDouble(json, "equity", m_equity);
-    m_locked = readStringAsDouble(json, "locked", m_locked);
-    readValue<bool>(json, "marginCollateral", m_marginCollateral);
-    m_totalOrderIM = readStringAsDouble(json, "totalOrderIM", m_totalOrderIM);
-    m_totalPositionIM = readStringAsDouble(json, "totalPositionIM", m_totalPositionIM);
-    m_totalPositionMM = readStringAsDouble(json, "totalPositionMM", m_totalPositionMM);
-    m_unrealisedPnl = readStringAsDouble(json, "unrealisedPnl", m_unrealisedPnl);
-    m_usdValue = readStringAsDouble(json, "usdValue", m_usdValue);
-    m_walletBalance = readStringAsDouble(json, "walletBalance", m_walletBalance);
+    accruedInterest = readStringAsDouble(json, "accruedInterest", accruedInterest);
+    availableToBorrow = readStringAsDouble(json, "availableToBorrow", availableToBorrow);
+    availableToWithdraw = readStringAsDouble(json, "availableToWithdraw", availableToWithdraw);
+    bonus = readStringAsDouble(json, "bonus", bonus);
+    borrowAmount = readStringAsDouble(json, "borrowAmount", borrowAmount);
+    readValue<std::string>(json, "coin", coin);
+    readValue<bool>(json, "collateralSwitch", collateralSwitch);
+    cumRealisedPnl = readStringAsDouble(json, "cumRealisedPnl", cumRealisedPnl);
+    equity = readStringAsDouble(json, "equity", equity);
+    locked = readStringAsDouble(json, "locked", locked);
+    readValue<bool>(json, "marginCollateral", marginCollateral);
+    totalOrderIM = readStringAsDouble(json, "totalOrderIM", totalOrderIM);
+    totalPositionIM = readStringAsDouble(json, "totalPositionIM", totalPositionIM);
+    totalPositionMM = readStringAsDouble(json, "totalPositionMM", totalPositionMM);
+    unrealisedPnl = readStringAsDouble(json, "unrealisedPnl", unrealisedPnl);
+    usdValue = readStringAsDouble(json, "usdValue", usdValue);
+    walletBalance = readStringAsDouble(json, "walletBalance", walletBalance);
 }
 
 nlohmann::json AccountBalance::toJson() const {
@@ -104,22 +104,22 @@ nlohmann::json AccountBalance::toJson() const {
 }
 
 void AccountBalance::fromJson(const nlohmann::json& json) {
-    m_accountIMRate = readStringAsDouble(json, "accountIMRate", m_accountIMRate);
-    m_accountLTV = readStringAsDouble(json, "accountLTV", m_accountLTV);
-    m_accountMMRate = readStringAsDouble(json, "accountMMRate", m_accountMMRate);
-    readMagicEnum<AccountType>(json, "accountType", m_accountType);
-    m_totalAvailableBalance = readStringAsDouble(json, "totalAvailableBalance", m_totalAvailableBalance);
-    m_totalEquity = readStringAsDouble(json, "totalEquity", m_totalEquity);
-    m_totalInitialMargin = readStringAsDouble(json, "totalInitialMargin", m_totalInitialMargin);
-    m_totalMaintenanceMargin = readStringAsDouble(json, "totalMaintenanceMargin", m_totalMaintenanceMargin);
-    m_totalMarginBalance = readStringAsDouble(json, "totalMarginBalance", m_totalMarginBalance);
-    m_totalPerpUPL = readStringAsDouble(json, "totalPerpUPL", m_totalPerpUPL);
-    m_totalWalletBalance = readStringAsDouble(json, "totalWalletBalance", m_totalWalletBalance);
+    accountIMRate = readStringAsDouble(json, "accountIMRate", accountIMRate);
+    accountLTV = readStringAsDouble(json, "accountLTV", accountLTV);
+    accountMMRate = readStringAsDouble(json, "accountMMRate", accountMMRate);
+    readMagicEnum<AccountType>(json, "accountType", accountType);
+    totalAvailableBalance = readStringAsDouble(json, "totalAvailableBalance", totalAvailableBalance);
+    totalEquity = readStringAsDouble(json, "totalEquity", totalEquity);
+    totalInitialMargin = readStringAsDouble(json, "totalInitialMargin", totalInitialMargin);
+    totalMaintenanceMargin = readStringAsDouble(json, "totalMaintenanceMargin", totalMaintenanceMargin);
+    totalMarginBalance = readStringAsDouble(json, "totalMarginBalance", totalMarginBalance);
+    totalPerpUPL = readStringAsDouble(json, "totalPerpUPL", totalPerpUPL);
+    totalWalletBalance = readStringAsDouble(json, "totalWalletBalance", totalWalletBalance);
 
     for (const auto& el : json["coin"].items()) {
         Coin coin;
         coin.fromJson(el.value());
-        m_coins.push_back(coin);
+        coins.push_back(coin);
     }
 }
 
@@ -130,10 +130,10 @@ nlohmann::json WalletBalance::toJson() const {
 void WalletBalance::fromJson(const nlohmann::json& json) {
     Response::fromJson(json);
 
-    for (const auto& el : m_result["list"].items()) {
+    for (const auto& el : result["list"].items()) {
         AccountBalance accountBalance;
         accountBalance.fromJson(el.value());
-        m_balances.push_back(accountBalance);
+        balances.push_back(accountBalance);
     }
 }
 
@@ -145,8 +145,8 @@ nlohmann::json ServerTime::toJson() const {
 void ServerTime::fromJson(const nlohmann::json& json) {
     Response::fromJson(json);
 
-    m_timeSecond = readStringAsInt64(m_result, "timeSecond");
-    m_timeNano = readStringAsInt64(m_result, "timeNano");
+    timeSecond = readStringAsInt64(result, "timeSecond");
+    timeNano = readStringAsInt64(result, "timeNano");
 }
 
 nlohmann::json Position::toJson() const {
@@ -154,46 +154,46 @@ nlohmann::json Position::toJson() const {
 }
 
 void Position::fromJson(const nlohmann::json& json) {
-    readValue<int>(json, "positionIdx", m_positionIdx);
-    readValue<int>(json, "riskId", m_riskId);
-    m_riskLimitValue = readStringAsDouble(json, "riskLimitValue", m_riskLimitValue);
-    readValue<std::string>(json, "symbol", m_symbol);
-    readMagicEnum<Side>(json, "side", m_side);
+    readValue<int>(json, "positionIdx", positionIdx);
+    readValue<int>(json, "riskId", riskId);
+    riskLimitValue = readStringAsDouble(json, "riskLimitValue", riskLimitValue);
+    readValue<std::string>(json, "symbol", symbol);
+    readMagicEnum<Side>(json, "side", side);
 
     /// We need to be absolutely sure whether the position has a non-zero size which cannot be assured with double type.
     boost::multiprecision::cpp_dec_float_50 positionSize{};
     readDecimalValue(json, "size", positionSize);
 
     if (positionSize) {
-        m_zeroSize = false;
+        zeroSize = false;
     }
 
-    m_size = readStringAsDouble(json, "size", m_size);
-    m_avgPrice = readStringAsDouble(json, "avgPrice", m_avgPrice);
-    m_positionValue = readStringAsDouble(json, "positionValue", m_positionValue);
-    readValue<int>(json, "tradeMode", m_tradeMode);
-    readMagicEnum<PositionStatus>(json, "positionStatus", m_positionStatus);
-    readValue<int>(json, "autoAddMargin", m_autoAddMargin);
-    readValue<int>(json, "adlRankIndicator", m_adlRankIndicator);
-    m_leverage = readStringAsDouble(json, "leverage", m_leverage);
-    m_positionBalance = readStringAsDouble(json, "positionBalance", m_positionBalance);
-    m_markPrice = readStringAsDouble(json, "markPrice", m_markPrice);
-    m_liqPrice = readStringAsDouble(json, "liqPrice", m_liqPrice);
-    m_bustPrice = readStringAsDouble(json, "bustPrice", m_bustPrice);
-    m_positionMM = readStringAsDouble(json, "positionMM", m_positionMM);
-    m_positionIM = readStringAsDouble(json, "positionIM", m_positionIM);
-    readMagicEnum<TpSlMode>(json, "tpSlMode", m_tpSlMode);
-    m_stopLoss = readStringAsDouble(json, "stopLoss", m_stopLoss);
-    m_takeProfit = readStringAsDouble(json, "takeProfit", m_takeProfit);
-    m_trailingStop = readStringAsDouble(json, "trailingStop", m_trailingStop);
-    m_unrealisedPnl = readStringAsDouble(json, "unrealisedPnl", m_unrealisedPnl);
-    m_cumRealisedPnl = readStringAsDouble(json, "cumRealisedPnl", m_cumRealisedPnl);
-    readValue<bool>(json, "isReduceOnly", m_isReduceOnly);
-    m_createdTime = readStringAsInt64(json, "createdTime");
-    m_updatedTime = readStringAsInt64(json, "updatedTime");
-    readValue<std::int64_t>(json, "seq", m_seq);
-    readValue<std::string>(json, "mmrSysUpdateTime", m_mmrSysUpdateTime);
-    readValue<std::string>(json, "leverageSysUpdatedTime", m_leverageSysUpdatedTime);
+    size = readStringAsDouble(json, "size", size);
+    avgPrice = readStringAsDouble(json, "avgPrice", avgPrice);
+    positionValue = readStringAsDouble(json, "positionValue", positionValue);
+    readValue<int>(json, "tradeMode", tradeMode);
+    readMagicEnum<PositionStatus>(json, "positionStatus", positionStatus);
+    readValue<int>(json, "autoAddMargin", autoAddMargin);
+    readValue<int>(json, "adlRankIndicator", adlRankIndicator);
+    leverage = readStringAsDouble(json, "leverage", leverage);
+    positionBalance = readStringAsDouble(json, "positionBalance", positionBalance);
+    markPrice = readStringAsDouble(json, "markPrice", markPrice);
+    liqPrice = readStringAsDouble(json, "liqPrice", liqPrice);
+    bustPrice = readStringAsDouble(json, "bustPrice", bustPrice);
+    positionMM = readStringAsDouble(json, "positionMM", positionMM);
+    positionIM = readStringAsDouble(json, "positionIM", positionIM);
+    readMagicEnum<TpSlMode>(json, "tpSlMode", tpSlMode);
+    stopLoss = readStringAsDouble(json, "stopLoss", stopLoss);
+    takeProfit = readStringAsDouble(json, "takeProfit", takeProfit);
+    trailingStop = readStringAsDouble(json, "trailingStop", trailingStop);
+    unrealisedPnl = readStringAsDouble(json, "unrealisedPnl", unrealisedPnl);
+    cumRealisedPnl = readStringAsDouble(json, "cumRealisedPnl", cumRealisedPnl);
+    readValue<bool>(json, "isReduceOnly", isReduceOnly);
+    createdTime = readStringAsInt64(json, "createdTime");
+    updatedTime = readStringAsInt64(json, "updatedTime");
+    readValue<std::int64_t>(json, "seq", seq);
+    readValue<std::string>(json, "mmrSysUpdateTime", mmrSysUpdateTime);
+    readValue<std::string>(json, "leverageSysUpdatedTime", leverageSysUpdatedTime);
 }
 
 nlohmann::json Positions::toJson() const {
@@ -202,12 +202,12 @@ nlohmann::json Positions::toJson() const {
 
 void Positions::fromJson(const nlohmann::json& json) {
     Response::fromJson(json);
-    readMagicEnum<Category>(m_result, "category", m_category);
+    readMagicEnum<Category>(result, "category", category);
 
-    for (const auto& el : m_result["list"].items()) {
+    for (const auto& el : result["list"].items()) {
         Position position;
         position.fromJson(el.value());
-        m_positions.push_back(position);
+        positions.push_back(position);
     }
 }
 
@@ -216,9 +216,9 @@ nlohmann::json PriceFilter::toJson() const {
 }
 
 void PriceFilter::fromJson(const nlohmann::json& json) {
-    m_minPrice = readStringAsDouble(json, "minPrice", m_minPrice);
-    m_maxPrice = readStringAsDouble(json, "maxPrice", m_maxPrice);
-    m_tickSize = readStringAsDouble(json, "tickSize", m_tickSize);
+    minPrice = readStringAsDouble(json, "minPrice", minPrice);
+    maxPrice = readStringAsDouble(json, "maxPrice", maxPrice);
+    tickSize = readStringAsDouble(json, "tickSize", tickSize);
 }
 
 nlohmann::json LeverageFilter::toJson() const {
@@ -226,9 +226,9 @@ nlohmann::json LeverageFilter::toJson() const {
 }
 
 void LeverageFilter::fromJson(const nlohmann::json& json) {
-    m_minLeverage = readStringAsDouble(json, "minLeverage", m_minLeverage);
-    m_maxLeverage = readStringAsDouble(json, "maxLeverage", m_maxLeverage);
-    m_leverageStep = readStringAsDouble(json, "leverageStep", m_leverageStep);
+    minLeverage = readStringAsDouble(json, "minLeverage", minLeverage);
+    maxLeverage = readStringAsDouble(json, "maxLeverage", maxLeverage);
+    leverageStep = readStringAsDouble(json, "leverageStep", leverageStep);
 }
 
 nlohmann::json LotSizeFilter::toJson() const {
@@ -236,10 +236,10 @@ nlohmann::json LotSizeFilter::toJson() const {
 }
 
 void LotSizeFilter::fromJson(const nlohmann::json& json) {
-    m_maxOrderQty = readStringAsDouble(json, "maxOrderQty", m_maxOrderQty);
-    m_minOrderQty = readStringAsDouble(json, "minOrderQty", m_minOrderQty);
-    m_qtyStep = readStringAsDouble(json, "qtyStep", m_qtyStep);
-    m_postOnlyMaxTradingQty = readStringAsDouble(json, "postOnlyMaxTradingQty", m_postOnlyMaxTradingQty);
+    maxOrderQty = readStringAsDouble(json, "maxOrderQty", maxOrderQty);
+    minOrderQty = readStringAsDouble(json, "minOrderQty", minOrderQty);
+    qtyStep = readStringAsDouble(json, "qtyStep", qtyStep);
+    postOnlyMaxTradingQty = readStringAsDouble(json, "postOnlyMaxTradingQty", postOnlyMaxTradingQty);
 }
 
 nlohmann::json Instrument::toJson() const {
@@ -247,25 +247,25 @@ nlohmann::json Instrument::toJson() const {
 }
 
 void Instrument::fromJson(const nlohmann::json& json) {
-    readValue<std::string>(json, "symbol", m_symbol);
-    readMagicEnum<ContractType>(json, "contractType", m_contractType);
-    readMagicEnum<ContractStatus>(json, "contractStatus", m_contractStatus);
-    readValue<std::string>(json, "baseCoin", m_baseCoin);
-    readValue<std::string>(json, "quoteCoin", m_quoteCoin);
-    m_launchTime = readStringAsInt64(json, "launchTime");
-    m_deliveryTime = readStringAsInt64(json, "deliveryTime");
-    m_deliveryFeeRate = readStringAsDouble(json, "deliveryFeeRate", m_deliveryFeeRate);
-    m_priceScale = readStringAsInt(json, "priceScale", m_priceScale);
-    readValue<bool>(json, "unifiedMarginTrade", m_unifiedMarginTrade);
-    readValue<int>(json, "fundingInterval", m_fundingInterval);
-    readValue<std::string>(json, "settleCoin", m_settleCoin);
+    readValue<std::string>(json, "symbol", symbol);
+    readMagicEnum<ContractType>(json, "contractType", contractType);
+    readMagicEnum<ContractStatus>(json, "contractStatus", contractStatus);
+    readValue<std::string>(json, "baseCoin", baseCoin);
+    readValue<std::string>(json, "quoteCoin", quoteCoin);
+    launchTime = readStringAsInt64(json, "launchTime");
+    deliveryTime = readStringAsInt64(json, "deliveryTime");
+    deliveryFeeRate = readStringAsDouble(json, "deliveryFeeRate", deliveryFeeRate);
+    priceScale = readStringAsInt(json, "priceScale", priceScale);
+    readValue<bool>(json, "unifiedMarginTrade", unifiedMarginTrade);
+    readValue<int>(json, "fundingInterval", fundingInterval);
+    readValue<std::string>(json, "settleCoin", settleCoin);
 
     if (json.contains("leverageFilter")) {
-      m_leverageFilter.fromJson(json["leverageFilter"]);
+      leverageFilter.fromJson(json["leverageFilter"]);
     }
 
-    m_priceFilter.fromJson(json["priceFilter"]);
-    m_lotSizeFilter.fromJson(json["lotSizeFilter"]);
+    priceFilter.fromJson(json["priceFilter"]);
+    lotSizeFilter.fromJson(json["lotSizeFilter"]);
 }
 
 nlohmann::json Instruments::toJson() const {
@@ -275,55 +275,55 @@ nlohmann::json Instruments::toJson() const {
 void Instruments::fromJson(const nlohmann::json& json) {
     Response::fromJson(json);
 
-    readMagicEnum<Category>(m_result, "category", m_category);
-    readValue<std::string>(m_result, "nextPageCursor", m_nextPageCursor);
+    readMagicEnum<Category>(result, "category", category);
+    readValue<std::string>(result, "nextPageCursor", nextPageCursor);
 
-    for (const auto& el : m_result["list"].items()) {
+    for (const auto& el : result["list"].items()) {
         Instrument instrument;
         instrument.fromJson(el.value());
-        m_instruments.push_back(instrument);
+        instruments.push_back(instrument);
     }
 }
 
 nlohmann::json Order::toJson() const {
     nlohmann::json json;
 
-    json["category"] = m_category;
-    json["side"] = m_side;
-    json["symbol"] = m_symbol;
-    json["orderType"] = m_orderType;
-    json["timeInForce"] = m_timeInForce;
-    json["reduceOnly"] = m_reduceOnly;
-    json["closeOnTrigger"] = m_closeOnTrigger;
-    json["positionIdx"] = m_positionIdx;
+    json["category"] = category;
+    json["side"] = side;
+    json["symbol"] = symbol;
+    json["orderType"] = orderType;
+    json["timeInForce"] = timeInForce;
+    json["reduceOnly"] = reduceOnly;
+    json["closeOnTrigger"] = closeOnTrigger;
+    json["positionIdx"] = positionIdx;
 
-    if (!m_orderLinkId.empty()) {
-        json["orderLinkId"] = m_orderLinkId;
+    if (!orderLinkId.empty()) {
+        json["orderLinkId"] = orderLinkId;
     }
 
-    if (m_takeProfit != 0.0) {
-        json["takeProfit"] = m_takeProfit;
+    if (takeProfit != 0.0) {
+        json["takeProfit"] = takeProfit;
     }
 
-    if (m_stopLoss != 0.0) {
-        json["stopLoss"] = m_stopLoss;
+    if (stopLoss != 0.0) {
+        json["stopLoss"] = stopLoss;
     }
 
-    if (m_orderType == OrderType::Limit) {
-        json["price"] = std::to_string(m_price);
+    if (orderType == OrderType::Limit) {
+        json["price"] = std::to_string(price);
     }
 
-    if (m_tpTriggerBy == TriggerPriceType::LastPrice) {
-        json["tpTriggerBy"] = m_tpTriggerBy;
+    if (tpTriggerBy == TriggerPriceType::LastPrice) {
+        json["tpTriggerBy"] = tpTriggerBy;
     }
 
-    if (m_slTriggerBy == TriggerPriceType::LastPrice) {
-        json["slTriggerBy"] = m_slTriggerBy;
+    if (slTriggerBy == TriggerPriceType::LastPrice) {
+        json["slTriggerBy"] = slTriggerBy;
     }
 
     /// Fix number of decimal in qty attribute
     {
-        const boost::multiprecision::cpp_dec_float_50 precision_dec(std::to_string(m_qtyStep));
+        const boost::multiprecision::cpp_dec_float_50 precision_dec(std::to_string(qtyStep));
         const auto parts = splitString(precision_dec.str(), '.');
         int precision = 0;
 
@@ -331,20 +331,20 @@ nlohmann::json Order::toJson() const {
             precision = parts[1].length();
         }
 
-        json["qty"] = formatDouble(precision, m_qty);
+        json["qty"] = formatDouble(precision, qty);
     }
 
     /// Fix number of decimal in price attribute
     {
-        const boost::multiprecision::cpp_dec_float_50 precision_dec(std::to_string(m_priceStep));
+        const boost::multiprecision::cpp_dec_float_50 precision_dec(std::to_string(priceStep));
         const auto parts = splitString(precision_dec.str(), '.');
         int precision = 0;
 
         if (parts.size() == 2) {
             precision = parts[1].length();
         }
-        if (m_orderType == OrderType::Limit) {
-            json["price"] = formatDouble(precision, m_price);
+        if (orderType == OrderType::Limit) {
+            json["price"] = formatDouble(precision, price);
         }
     }
     return json;
@@ -361,65 +361,65 @@ nlohmann::json OrderId::toJson() const {
 void OrderId::fromJson(const nlohmann::json& json) {
     Response::fromJson(json);
 
-    readValue<std::string>(m_result, "orderId", m_orderId);
-    readValue<std::string>(m_result, "orderLinkId", m_orderLinkId);
+    readValue<std::string>(result, "orderId", orderId);
+    readValue<std::string>(result, "orderLinkId", orderLinkId);
 }
 
 nlohmann::json OrderResponse::toJson() const {
     nlohmann::json json;
 
-    json["orderId"] = m_orderId;
-    json["orderLinkId"] = m_orderLinkId;
-    json["symbol"] = m_symbol;
-    json["side"] = m_side;
-    json["price"] = std::to_string(m_price);
-    json["qty"] = std::to_string(m_qty);
-    json["positionIdx"] = m_positionIdx;
-    json["orderStatus"] = m_orderStatus;
-    json["rejectReason"] = m_rejectReason;
-    json["cumExecQty"] = std::to_string(m_cumExecQty);
-    json["cumExecValue"] = std::to_string(m_cumExecValue);
-    json["cumExecFee"] = std::to_string(m_cumExecFee);
-    json["avgPrice"] = std::to_string(m_avgPrice);
-    json["timeInForce"] = m_timeInForce;
-    json["orderType"] = m_orderType;
-    json["reduceOnly"] = m_reduceOnly;
-    json["closeOnTrigger"] = m_closeOnTrigger;
-    json["lastPriceOnCreated"] = std::to_string(m_lastPriceOnCreated);
-    json["createdTime"] = m_createdTime;
-    json["updatedTime"] = m_updatedTime;
-    json["takeProfit"] = std::to_string(m_takeProfit);
-    json["stopLoss"] = std::to_string(m_stopLoss);
-    json["tpTriggerBy"] = m_tpTriggerBy;
-    json["slTriggerBy"] = m_slTriggerBy;
+    json["orderId"] = orderId;
+    json["orderLinkId"] = orderLinkId;
+    json["symbol"] = symbol;
+    json["side"] = side;
+    json["price"] = std::to_string(price);
+    json["qty"] = std::to_string(qty);
+    json["positionIdx"] = positionIdx;
+    json["orderStatus"] = orderStatus;
+    json["rejectReason"] = rejectReason;
+    json["cumExecQty"] = std::to_string(cumExecQty);
+    json["cumExecValue"] = std::to_string(cumExecValue);
+    json["cumExecFee"] = std::to_string(cumExecFee);
+    json["avgPrice"] = std::to_string(avgPrice);
+    json["timeInForce"] = timeInForce;
+    json["orderType"] = orderType;
+    json["reduceOnly"] = reduceOnly;
+    json["closeOnTrigger"] = closeOnTrigger;
+    json["lastPriceOnCreated"] = std::to_string(lastPriceOnCreated);
+    json["createdTime"] = createdTime;
+    json["updatedTime"] = updatedTime;
+    json["takeProfit"] = std::to_string(takeProfit);
+    json["stopLoss"] = std::to_string(stopLoss);
+    json["tpTriggerBy"] = tpTriggerBy;
+    json["slTriggerBy"] = slTriggerBy;
     return json;
 }
 
 void OrderResponse::fromJson(const nlohmann::json& json) {
-    readValue<std::string>(json, "orderId", m_orderId);
-    readValue<std::string>(json, "orderLinkId", m_orderLinkId);
-    readValue<std::string>(json, "symbol", m_symbol);
-    readMagicEnum<Side>(json, "side", m_side);
-    m_price = readStringAsDouble(json, "price", m_price);
-    m_qty = readStringAsDouble(json, "qty", m_qty);
-    readValue<std::int64_t>(json, "positionIdx", m_positionIdx);
-    readMagicEnum<OrderStatus>(json, "orderStatus", m_orderStatus);
-    readValue<std::string>(json, "rejectReason", m_rejectReason);
-    m_avgPrice = readStringAsDouble(json, "avgPrice", m_avgPrice);
-    m_cumExecQty = readStringAsDouble(json, "cumExecQty", m_cumExecQty);
-    m_cumExecValue = readStringAsDouble(json, "cumExecValue", m_cumExecValue);
-    m_cumExecFee = readStringAsDouble(json, "cumExecFee", m_cumExecFee);
-    readMagicEnum<TimeInForce>(json, "timeInForce", m_timeInForce);
-    readMagicEnum<OrderType>(json, "orderType", m_orderType);
-    readValue<bool>(json, "reduceOnly", m_reduceOnly);
-    readValue<bool>(json, "closeOnTrigger", m_closeOnTrigger);
-    m_lastPriceOnCreated = readStringAsDouble(json, "lastPriceOnCreated", m_lastPriceOnCreated);
-    readValue<std::string>(json, "createdTime", m_createdTime);
-    readValue<std::string>(json, "updatedTime", m_updatedTime);
-    m_takeProfit = readStringAsDouble(json, "takeProfit", m_takeProfit);
-    m_stopLoss = readStringAsDouble(json, "stopLoss", m_stopLoss);
-    readMagicEnum<TriggerPriceType>(json, "tpTriggerBy", m_tpTriggerBy);
-    readMagicEnum<TriggerPriceType>(json, "slTriggerBy", m_slTriggerBy);
+    readValue<std::string>(json, "orderId", orderId);
+    readValue<std::string>(json, "orderLinkId", orderLinkId);
+    readValue<std::string>(json, "symbol", symbol);
+    readMagicEnum<Side>(json, "side", side);
+    price = readStringAsDouble(json, "price", price);
+    qty = readStringAsDouble(json, "qty", qty);
+    readValue<std::int64_t>(json, "positionIdx", positionIdx);
+    readMagicEnum<OrderStatus>(json, "orderStatus", orderStatus);
+    readValue<std::string>(json, "rejectReason", rejectReason);
+    avgPrice = readStringAsDouble(json, "avgPrice", avgPrice);
+    cumExecQty = readStringAsDouble(json, "cumExecQty", cumExecQty);
+    cumExecValue = readStringAsDouble(json, "cumExecValue", cumExecValue);
+    cumExecFee = readStringAsDouble(json, "cumExecFee", cumExecFee);
+    readMagicEnum<TimeInForce>(json, "timeInForce", timeInForce);
+    readMagicEnum<OrderType>(json, "orderType", orderType);
+    readValue<bool>(json, "reduceOnly", reduceOnly);
+    readValue<bool>(json, "closeOnTrigger", closeOnTrigger);
+    lastPriceOnCreated = readStringAsDouble(json, "lastPriceOnCreated", lastPriceOnCreated);
+    readValue<std::string>(json, "createdTime", createdTime);
+    readValue<std::string>(json, "updatedTime", updatedTime);
+    takeProfit = readStringAsDouble(json, "takeProfit", takeProfit);
+    stopLoss = readStringAsDouble(json, "stopLoss", stopLoss);
+    readMagicEnum<TriggerPriceType>(json, "tpTriggerBy", tpTriggerBy);
+    readMagicEnum<TriggerPriceType>(json, "slTriggerBy", slTriggerBy);
 }
 
 nlohmann::json OrdersResponse::toJson() const {
@@ -429,12 +429,12 @@ nlohmann::json OrdersResponse::toJson() const {
 void OrdersResponse::fromJson(const nlohmann::json& json) {
     Response::fromJson(json);
 
-    readMagicEnum<Category>(m_result, "category", m_category);
+    readMagicEnum<Category>(result, "category", category);
 
-    for (const auto& el : m_result["list"].items()) {
+    for (const auto& el : result["list"].items()) {
         OrderResponse orderResponse;
         orderResponse.fromJson(el.value());
-        m_orders.push_back(orderResponse);
+        orders.push_back(orderResponse);
     }
 }
 
@@ -443,9 +443,9 @@ nlohmann::json FundingRate::toJson() const {
 }
 
 void FundingRate::fromJson(const nlohmann::json& json) {
-    readValue<std::string>(json, "symbol", m_symbol);
-    m_fundingRate = readStringAsDouble(json, "fundingRate", m_fundingRate);
-    m_fundingRateTimestamp = readStringAsInt64(json, "fundingRateTimestamp", m_fundingRateTimestamp);
+    readValue<std::string>(json, "symbol", symbol);
+    fundingRate = readStringAsDouble(json, "fundingRate", fundingRate);
+    fundingRateTimestamp = readStringAsInt64(json, "fundingRateTimestamp", fundingRateTimestamp);
 }
 
 nlohmann::json FundingRates::toJson() const {
@@ -455,12 +455,12 @@ nlohmann::json FundingRates::toJson() const {
 void FundingRates::fromJson(const nlohmann::json& json) {
     Response::fromJson(json);
 
-    readMagicEnum<Category>(m_result, "category", m_category);
+    readMagicEnum<Category>(result, "category", category);
 
-    for (const auto& el : m_result["list"].items()) {
-        FundingRate fundingRate;
-        fundingRate.fromJson(el.value());
-        m_fundingRates.push_back(fundingRate);
+    for (const auto& el : result["list"].items()) {
+        FundingRate rate;
+        rate.fromJson(el.value());
+        fundingRates.push_back(rate);
     }
 }
 
@@ -469,25 +469,24 @@ nlohmann::json Ticker::toJson() const {
 }
 
 void Ticker::fromJson(const nlohmann::json& json) {
-
-    readValue<std::string>(json, "symbol", m_symbol);
-    m_lastPrice = readStringAsDouble(json, "lastPrice", m_lastPrice);
-    m_indexPrice = readStringAsDouble(json, "indexPrice", m_indexPrice);
-    m_markPrice = readStringAsDouble(json, "markPrice", m_markPrice);
-    m_prevPrice24h = readStringAsDouble(json, "prevPrice24h", m_prevPrice24h);
-    m_price24hPcnt = readStringAsDouble(json, "price24hPcnt", m_price24hPcnt);
-    m_highPrice24h = readStringAsDouble(json, "highPrice24h", m_highPrice24h);
-    m_prevPrice1h = readStringAsDouble(json, "prevPrice1h", m_prevPrice1h);
-    m_openInterest = readStringAsInt64(json, "openInterest", m_openInterest);
-    m_openInterestValue = readStringAsDouble(json, "openInterestValue", m_openInterestValue);
-    m_turnover24h = readStringAsDouble(json, "turnover24h", m_turnover24h);
-    m_volume24h = readStringAsDouble(json, "volume24h", m_volume24h);
-    m_fundingRate = readStringAsDouble(json, "fundingRate", m_fundingRate);
-    m_nextFundingTime = readStringAsInt64(json, "nextFundingTime", m_nextFundingTime);
-    m_ask1Size = readStringAsDouble(json, "ask1Size", m_ask1Size);
-    m_bid1Price = readStringAsDouble(json, "bid1Price", m_bid1Price);
-    m_ask1Price = readStringAsDouble(json, "ask1Price", m_ask1Price);
-    m_bid1Size = readStringAsDouble(json, "bid1Size", m_bid1Size);
+    readValue<std::string>(json, "symbol", symbol);
+    lastPrice = readStringAsDouble(json, "lastPrice", lastPrice);
+    indexPrice = readStringAsDouble(json, "indexPrice", indexPrice);
+    markPrice = readStringAsDouble(json, "markPrice", markPrice);
+    prevPrice24h = readStringAsDouble(json, "prevPrice24h", prevPrice24h);
+    price24hPcnt = readStringAsDouble(json, "price24hPcnt", price24hPcnt);
+    highPrice24h = readStringAsDouble(json, "highPrice24h", highPrice24h);
+    prevPrice1h = readStringAsDouble(json, "prevPrice1h", prevPrice1h);
+    openInterest = readStringAsInt64(json, "openInterest", openInterest);
+    openInterestValue = readStringAsDouble(json, "openInterestValue", openInterestValue);
+    turnover24h = readStringAsDouble(json, "turnover24h", turnover24h);
+    volume24h = readStringAsDouble(json, "volume24h", volume24h);
+    fundingRate = readStringAsDouble(json, "fundingRate", fundingRate);
+    nextFundingTime = readStringAsInt64(json, "nextFundingTime", nextFundingTime);
+    ask1Size = readStringAsDouble(json, "ask1Size", ask1Size);
+    bid1Price = readStringAsDouble(json, "bid1Price", bid1Price);
+    ask1Price = readStringAsDouble(json, "ask1Price", ask1Price);
+    bid1Size = readStringAsDouble(json, "bid1Size", bid1Size);
 }
 
 nlohmann::json Tickers::toJson() const {
@@ -497,12 +496,12 @@ nlohmann::json Tickers::toJson() const {
 void Tickers::fromJson(const nlohmann::json& json) {
     Response::fromJson(json);
 
-    readMagicEnum<Category>(m_result, "category", m_category);
+    readMagicEnum<Category>(result, "category", category);
 
-    for (const auto& el : m_result["list"].items()) {
+    for (const auto& el : result["list"].items()) {
         Ticker ticker;
         ticker.fromJson(el.value());
-        m_tickers.push_back(ticker);
+        tickers.push_back(ticker);
     }
 }
 }

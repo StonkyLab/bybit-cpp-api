@@ -20,36 +20,35 @@ ValueType handleBybitResponse(const http::response<http::string_body> &response)
 	ValueType retVal;
 	retVal.fromJson(nlohmann::json::parse(response.body()));
 
-	if (retVal.m_retCode != 0) {
+	if (retVal.retCode != 0) {
 		throw std::runtime_error(
-			fmt::format("Bybit API error, code: {}, msg: {}", retVal.m_retCode, retVal.m_retMsg).c_str());
+			fmt::format("Bybit API error, code: {}, msg: {}", retVal.retCode, retVal.retMsg).c_str());
 	}
 
 	return retVal;
 }
 
-
 struct RateLimiter {
-	std::mutex m_mutex;
-	int m_remaining = 50; 
-	std::int64_t m_resetTime = 0;
+	std::mutex mutex;
+	int remaining = 50;
+	std::int64_t resetTime = 0;
     
     // Local fallback mechanism
-    bool m_serverHeadersFound = false;
-    std::deque<std::int64_t> m_requestTimes; // For local sliding window
-    const size_t m_localLimit = 100;          // 100 requests per second
-    const std::int64_t m_windowSizeMs = 1000;
+    bool serverHeadersFound = false;
+    std::deque<std::int64_t> requestTimes; // For local sliding window
+    const size_t localLimit = 10;           // 10 requests per second (conservative, Bybit doesn't send rate headers for public endpoints)
+    const std::int64_t windowSizeMs = 1000;
 
 	void update(const http::response<http::string_body> &response) {
-		std::lock_guard lock(m_mutex);
+		std::lock_guard lock(mutex);
 		try {
 			// Headers are case-insensitive in Boost.Beast
 			const auto itStatus = response.find("X-Bapi-Limit-Status");
 
 			if (const auto itReset = response.find("X-Bapi-Limit-Reset"); itStatus != response.end() && itReset != response.end()) {
-                m_remaining = std::stoi(std::string(itStatus->value()));
-                m_resetTime = std::stoll(std::string(itReset->value()));
-                m_serverHeadersFound = true; // Switch to server-side mode
+                remaining = std::stoi(std::string(itStatus->value()));
+                resetTime = std::stoll(std::string(itReset->value()));
+                serverHeadersFound = true; // Switch to server-side mode
             }
 			
 			// Log for debugging
@@ -62,15 +61,15 @@ struct RateLimiter {
 	}
 
 	void wait() {
-		std::unique_lock lock(m_mutex);
+		std::unique_lock lock(mutex);
         const auto now = std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::system_clock::now().time_since_epoch()).count();
 
-        if (m_serverHeadersFound) {
+        if (serverHeadersFound) {
             // Server-side logic
-            if (m_remaining <= 2) { 
-                if (m_resetTime > now) {
-                    const auto waitTime = m_resetTime - now + 50; // +50ms buffer
+            if (remaining <= 2) {
+                if (resetTime > now) {
+                    const auto waitTime = resetTime - now + 50; // +50ms buffer
                     spdlog::info("Rate limit reached (Server). Waiting for {} ms", waitTime);
                     std::this_thread::sleep_for(std::chrono::milliseconds(waitTime));
                 }
@@ -78,15 +77,15 @@ struct RateLimiter {
         } else {
             // Local fallback logic (Sliding Window)
             // Remove old requests
-            while (!m_requestTimes.empty() && now - m_requestTimes.front() > m_windowSizeMs) {
-                m_requestTimes.pop_front();
+            while (!requestTimes.empty() && now - requestTimes.front() > windowSizeMs) {
+                requestTimes.pop_front();
             }
 
-            if (m_requestTimes.size() >= m_localLimit) {
+            if (requestTimes.size() >= localLimit) {
                 // Wait until the oldest request expires
-                const auto oldest = m_requestTimes.front();
+                const auto oldest = requestTimes.front();
 
-                if (const auto waitTime = (oldest + m_windowSizeMs) - now + 10; waitTime > 0) {
+                if (const auto waitTime = (oldest + windowSizeMs) - now + 10; waitTime > 0) {
                     spdlog::info("Rate limit reached (Local). Waiting for {} ms", waitTime);
                     std::this_thread::sleep_for(std::chrono::milliseconds(waitTime));
                     
@@ -94,12 +93,12 @@ struct RateLimiter {
                     // Update now after sleep
                      const auto nowAfterWait = std::chrono::duration_cast<std::chrono::milliseconds>(
                         std::chrono::system_clock::now().time_since_epoch()).count();
-                     while (!m_requestTimes.empty() && nowAfterWait - m_requestTimes.front() > m_windowSizeMs) {
-                        m_requestTimes.pop_front();
+                     while (!requestTimes.empty() && nowAfterWait - requestTimes.front() > windowSizeMs) {
+                        requestTimes.pop_front();
                     }
                 }
             }
-            m_requestTimes.push_back(now);
+            requestTimes.push_back(now);
         }
 	}
 };
@@ -110,12 +109,12 @@ private:
 	mutable std::recursive_mutex m_locker;
     
 public:
-	RESTClient *m_parent = nullptr;
-	std::shared_ptr<HTTPSession> m_httpSession;
-	mutable RateLimiter m_rateLimiter; // Add RateLimiter
+	RESTClient *parent = nullptr;
+	std::shared_ptr<HTTPSession> httpSession;
+	mutable RateLimiter rateLimiter; // Add RateLimiter
 
 	explicit P(RESTClient *parent) {
-		m_parent = parent;
+		this->parent = parent;
 	}
 
 	[[nodiscard]] Instruments getInstruments() const {
@@ -130,17 +129,17 @@ public:
 
 	void setInstruments(const std::vector<Instrument> &instruments) {
 		std::lock_guard lk(m_locker);
-		m_instruments.m_instruments = instruments;
+		m_instruments.instruments = instruments;
 	}
 
 	bool findPricePrecisionsForInstrument(const Category category,
 	                                      const std::string &symbol,
 	                                      double &priceStep,
 	                                      double &qtyStep) const {
-		for (const auto symbols = m_parent->getInstrumentsInfo(category); const auto &symbolEl: symbols) {
-			if (symbolEl.m_symbol == symbol) {
-				priceStep = symbolEl.m_priceFilter.m_tickSize;
-				qtyStep = symbolEl.m_lotSizeFilter.m_qtyStep;
+		for (const auto symbols = parent->getInstrumentsInfo(category); const auto &symbolEl: symbols) {
+			if (symbolEl.symbol == symbol) {
+				priceStep = symbolEl.priceFilter.tickSize;
+				qtyStep = symbolEl.lotSizeFilter.qtyStep;
 				return true;
 			}
 		}
@@ -149,7 +148,7 @@ public:
 
 	http::response<http::string_body> checkResponse(const http::response<http::string_body> &response) const {
         // Update rate limiter with headers from response
-        m_rateLimiter.update(response);
+        rateLimiter.update(response);
 
 		if (response.result() != http::status::ok) {
 			throw std::runtime_error(
@@ -176,10 +175,10 @@ public:
 		}
         
         // Wait if rate limited
-        m_rateLimiter.wait();
+        rateLimiter.wait();
 
-		const auto response = checkResponse(m_httpSession->get(path, parameters));
-		return handleBybitResponse<Candles>(response).m_candles;
+		const auto response = checkResponse(httpSession->get(path, parameters));
+		return handleBybitResponse<Candles>(response).candles;
 	}
 
 	[[nodiscard]] std::vector<FundingRate> getFundingRates(const Category category,
@@ -199,10 +198,10 @@ public:
 		}
 
         // Wait if rate limited
-        m_rateLimiter.wait();
+        rateLimiter.wait();
 
-		const auto response = checkResponse(m_httpSession->get(path, parameters));
-		return handleBybitResponse<FundingRates>(response).m_fundingRates;
+		const auto response = checkResponse(httpSession->get(path, parameters));
+		return handleBybitResponse<FundingRates>(response).fundingRates;
 	}
 
 	Instruments getInstrumentsInfo(const Category category, const std::string &symbol,
@@ -220,23 +219,23 @@ public:
 		}
         
         // Wait if rate limited
-        m_rateLimiter.wait();
+        rateLimiter.wait();
 
-		const auto response = checkResponse(m_httpSession->get(path, parameters));
+		const auto response = checkResponse(httpSession->get(path, parameters));
 		return handleBybitResponse<Instruments>(response);
 	}
 };
 
 RESTClient::RESTClient(const std::string &apiKey, const std::string &apiSecret) : m_p(
 	std::make_unique<P>(this)) {
-	m_p->m_httpSession = std::make_shared<HTTPSession>(apiKey, apiSecret);
+	m_p->httpSession = std::make_shared<HTTPSession>(apiKey, apiSecret);
 }
 
 RESTClient::~RESTClient() = default;
 
 void RESTClient::setCredentials(const std::string &apiKey, const std::string &apiSecret) const {
-	m_p->m_httpSession.reset();
-	m_p->m_httpSession = std::make_shared<HTTPSession>(apiKey, apiSecret);
+	m_p->httpSession.reset();
+	m_p->httpSession = std::make_shared<HTTPSession>(apiKey, apiSecret);
 }
 
 std::vector<Candle>
@@ -254,7 +253,7 @@ RESTClient::getHistoricalPrices(const Category category,
 
 		std::ranges::reverse(candles);
 
-		if ((candles.back().m_startTime - to) < Bybit::numberOfMsForCandleInterval(interval)) {
+		if ((candles.back().startTime - to) < Bybit::numberOfMsForCandleInterval(interval)) {
 			candles.pop_back();
 		}
 
@@ -266,9 +265,9 @@ RESTClient::getHistoricalPrices(const Category category,
 		const auto last = candles.back();
 
 
-		if (to < last.m_startTime) {
+		if (to < last.startTime) {
 			for (const auto &candle: candles) {
-				if (candle.m_startTime <= to) {
+				if (candle.startTime <= to) {
 					retVal.push_back(candle);
 				}
 			}
@@ -279,7 +278,7 @@ RESTClient::getHistoricalPrices(const Category category,
 		}
 
 		retVal.insert(retVal.end(), candles.begin(), candles.end());
-		from = last.m_startTime + Bybit::numberOfMsForCandleInterval(interval);
+		from = last.startTime + Bybit::numberOfMsForCandleInterval(interval);
 
 		if (writer) {
 			writer(candles);
@@ -301,8 +300,8 @@ WalletBalance RESTClient::getWalletBalance(const AccountType accountType, const 
 		parameters.insert_or_assign("coin", coin);
 	}
 
-    m_p->m_rateLimiter.wait();
-	const auto response = m_p->checkResponse(m_p->m_httpSession->get(path, parameters));
+    m_p->rateLimiter.wait();
+	const auto response = m_p->checkResponse(m_p->httpSession->get(path, parameters));
 	return handleBybitResponse<WalletBalance>(response);
 }
 
@@ -310,11 +309,11 @@ std::int64_t RESTClient::getServerTime() const {
 	const std::string path = "/v5/market/time";
 	const std::map<std::string, std::string> parameters;
 
-    m_p->m_rateLimiter.wait();
-	const auto response = m_p->checkResponse(m_p->m_httpSession->get(path, parameters));
+    m_p->rateLimiter.wait();
+	const auto response = m_p->checkResponse(m_p->httpSession->get(path, parameters));
 	const auto timeResponse = handleBybitResponse<ServerTime>(response);
 
-	return timeResponse.m_timeNano / 1000000;
+	return timeResponse.timeNano / 1000000;
 }
 
 std::vector<Position> RESTClient::getPositionInfo(const Category category, const std::string &symbol) const {
@@ -327,29 +326,29 @@ std::vector<Position> RESTClient::getPositionInfo(const Category category, const
 		parameters.insert_or_assign("symbol", symbol);
 	}
 
-    m_p->m_rateLimiter.wait();
-	const auto response = m_p->checkResponse(m_p->m_httpSession->get(path, parameters));
-	return handleBybitResponse<Positions>(response).m_positions;
+    m_p->rateLimiter.wait();
+	const auto response = m_p->checkResponse(m_p->httpSession->get(path, parameters));
+	return handleBybitResponse<Positions>(response).positions;
 }
 
 std::vector<Instrument>
 RESTClient::getInstrumentsInfo(const Category category, const std::string &symbol, const bool force) const {
-	if (m_p->getInstruments().m_instruments.empty() || force) {
-		Instruments instruments;
+	if (m_p->getInstruments().instruments.empty() || force) {
+		Instruments instr;
 		std::vector<Instrument> temp;
 
 		do {
-			instruments = m_p->getInstrumentsInfo(category, symbol, instruments.m_nextPageCursor);
+			instr = m_p->getInstrumentsInfo(category, symbol, instr.nextPageCursor);
 
-			for (const auto &instrument: instruments.m_instruments) {
+			for (const auto &instrument: instr.instruments) {
 				temp.push_back(instrument);
 			}
-		} while (!instruments.m_nextPageCursor.empty());
+		} while (!instr.nextPageCursor.empty());
 
 		m_p->setInstruments(temp);
 	}
 
-	return m_p->getInstruments().m_instruments;
+	return m_p->getInstruments().instruments;
 }
 
 bool RESTClient::setPositionMode(Category category,
@@ -374,16 +373,16 @@ bool RESTClient::setPositionMode(Category category,
 	auto payload = nlohmann::json(parameters);
 	payload["mode"] = positionMode;
 
-    m_p->m_rateLimiter.wait();
-	const auto response = m_p->checkResponse(m_p->m_httpSession->post(path, payload));
+    m_p->rateLimiter.wait();
+	const auto response = m_p->checkResponse(m_p->httpSession->post(path, payload));
 
 	try {
-		return handleBybitResponse<Response>(response).m_retMsg == "OK";
+		return handleBybitResponse<Response>(response).retMsg == "OK";
 	} catch (std::exception &) {
 		Response resp;
 		resp.fromJson(nlohmann::json::parse(response.body()));
 
-		if (resp.m_retMsg == "Position mode is not modified") {
+		if (resp.retMsg == "Position mode is not modified") {
 			return true;
 		}
 	}
@@ -397,13 +396,13 @@ OrderId RESTClient::placeOrder(Order &order) const {
 	double priceStep = 0.01;
 	double qtyStep = 0.01;
 
-	m_p->findPricePrecisionsForInstrument(order.m_category, order.m_symbol, priceStep, qtyStep);
+	m_p->findPricePrecisionsForInstrument(order.category, order.symbol, priceStep, qtyStep);
 
-	order.m_priceStep = priceStep;
-	order.m_qtyStep = qtyStep;
+	order.priceStep = priceStep;
+	order.qtyStep = qtyStep;
 
-    m_p->m_rateLimiter.wait();
-	const auto response = m_p->checkResponse(m_p->m_httpSession->post(path, order.toJson()));
+    m_p->rateLimiter.wait();
+	const auto response = m_p->checkResponse(m_p->httpSession->post(path, order.toJson()));
 	return handleBybitResponse<OrderId>(response);
 }
 
@@ -413,9 +412,9 @@ std::vector<OrderResponse> RESTClient::getOpenOrders(const Category category, co
 	parameters.insert_or_assign("category", magic_enum::enum_name(category));
 	parameters.insert_or_assign("symbol", symbol);
 
-    m_p->m_rateLimiter.wait();
-	const auto response = m_p->checkResponse(m_p->m_httpSession->get(path, parameters));
-	return handleBybitResponse<OrdersResponse>(response).m_orders;
+    m_p->rateLimiter.wait();
+	const auto response = m_p->checkResponse(m_p->httpSession->get(path, parameters));
+	return handleBybitResponse<OrdersResponse>(response).orders;
 }
 
 std::optional<OrderResponse>
@@ -430,10 +429,10 @@ RESTClient::getOpenOrder(const Category category,
 	parameters.insert_or_assign("orderId", orderId);
 	parameters.insert_or_assign("orderLinkId", orderLinkId);
 
-    m_p->m_rateLimiter.wait();
-	if (const auto response = m_p->checkResponse(m_p->m_httpSession->get(path, parameters)); !handleBybitResponse<
-		OrdersResponse>(response).m_orders.empty()) {
-		return handleBybitResponse<OrdersResponse>(response).m_orders.front();
+    m_p->rateLimiter.wait();
+	if (const auto response = m_p->checkResponse(m_p->httpSession->get(path, parameters)); !handleBybitResponse<
+		OrdersResponse>(response).orders.empty()) {
+		return handleBybitResponse<OrdersResponse>(response).orders.front();
 	}
 
 	return {};
@@ -450,15 +449,15 @@ std::vector<OrderId> RESTClient::cancelAllOrders(Category category, const std::s
 		parameters.insert_or_assign("symbol", symbol);
 	}
 
-    m_p->m_rateLimiter.wait();
-	const auto response = m_p->checkResponse(m_p->m_httpSession->post(path, nlohmann::json(parameters)));
+    m_p->rateLimiter.wait();
+	const auto response = m_p->checkResponse(m_p->httpSession->post(path, nlohmann::json(parameters)));
 
-	for (const auto result = handleBybitResponse<Response>(response).m_result; const auto &el: result["list"].
+	for (const auto res = handleBybitResponse<Response>(response).result; const auto &el: res["list"].
 	     items()) {
-		OrderId orderId;
-		orderId.m_result = el.value();
-		orderId.fromJson({});
-		retVal.push_back(orderId);
+		OrderId oid;
+		oid.result = el.value();
+		oid.fromJson({});
+		retVal.push_back(oid);
 	}
 
 	return retVal;
@@ -481,8 +480,8 @@ OrderId RESTClient::cancelOrder(const Category category,
 		parameters.insert_or_assign("orderLinkId", orderId);
 	}
 
-    m_p->m_rateLimiter.wait();
-	const auto response = m_p->checkResponse(m_p->m_httpSession->post(path, nlohmann::json(parameters)));
+    m_p->rateLimiter.wait();
+	const auto response = m_p->checkResponse(m_p->httpSession->post(path, nlohmann::json(parameters)));
 	return handleBybitResponse<OrderId>(response);
 }
 
@@ -491,21 +490,21 @@ void RESTClient::setInstruments(const std::vector<Instrument> &instruments) cons
 }
 
 void RESTClient::closeAllPositions(const Category category) const {
-	for (const auto positions = getPositionInfo(category); const auto &position: positions) {
-		if (!position.m_zeroSize) {
-			Order order;
-			order.m_symbol = position.m_symbol;
+	for (const auto positionList = getPositionInfo(category); const auto &pos: positionList) {
+		if (!pos.zeroSize) {
+			Order ord;
+			ord.symbol = pos.symbol;
 
-			if (position.m_side == Side::Buy) {
-				order.m_side = Side::Sell;
+			if (pos.side == Side::Buy) {
+				ord.side = Side::Sell;
 			} else {
-				order.m_side = Side::Buy;
+				ord.side = Side::Buy;
 			}
 
-			order.m_orderType = OrderType::Market;
-			order.m_qty = position.m_size;
-			order.m_timeInForce = TimeInForce::GTC;
-			auto orderResponse = placeOrder(order);
+			ord.orderType = OrderType::Market;
+			ord.qty = pos.size;
+			ord.timeInForce = TimeInForce::GTC;
+			auto orderResponse = placeOrder(ord);
 		}
 	}
 }
@@ -525,7 +524,7 @@ RESTClient::getFundingRates(const Category category,
 
 	while (!fr.empty()) {
 		retVal.insert(retVal.end(), fr.begin(), fr.end());
-		endTime = fr.back().m_fundingRateTimestamp - 1;
+		endTime = fr.back().fundingRateTimestamp - 1;
 		fr.clear();
 
 		if (startTime < endTime) {
@@ -544,8 +543,8 @@ Tickers RESTClient::getTickers(const Category category, const std::string &symbo
 	parameters.insert_or_assign("category", magic_enum::enum_name(category));
 	parameters.insert_or_assign("symbol", symbol);
 
-    m_p->m_rateLimiter.wait();
-	const auto response = m_p->checkResponse(m_p->m_httpSession->get(path, parameters));
+    m_p->rateLimiter.wait();
+	const auto response = m_p->checkResponse(m_p->httpSession->get(path, parameters));
 	return handleBybitResponse<Tickers>(response);
 }
 }

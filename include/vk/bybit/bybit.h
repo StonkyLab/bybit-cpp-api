@@ -29,5 +29,5 @@ public:
      */
     static int64_t numberOfMsForCandleInterval(CandleInterval candleInterval);
 };
-}
-#endif //INCLUDE_VK_BYBIT_API_H
+} // namespace vk::bybit
+#endif // INCLUDE_VK_BYBIT_API_H

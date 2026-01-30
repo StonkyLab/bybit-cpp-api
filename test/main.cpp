@@ -77,7 +77,7 @@ bool checkCandles(const std::vector<Candle>& candles, const CandleInterval inter
     }
 
     for (auto i = 0; i < candles.size() - 1; i++) {
-        if (const auto timeDiff = candles[i + 1].m_startTime - candles[i].m_startTime; timeDiff != secs) {
+        if (const auto timeDiff = candles[i + 1].startTime - candles[i].startTime; timeDiff != secs) {
             return false;
         }
     }
@@ -182,25 +182,25 @@ void positions() {
 
     try {
         for (const auto& position : restClient->getPositionInfo(Category::linear, "BTCUSDT")) {
-            if (position.m_size != 0) {
+            if (position.size != 0) {
                 const auto ts = vk::getMsTimestamp(vk::currentTime()).count();
                 Order order;
-                order.m_symbol = position.m_symbol;
+                order.symbol = position.symbol;
 
-                if (position.m_side == Side::Buy) {
-                    order.m_side = Side::Sell;
+                if (position.side == Side::Buy) {
+                    order.side = Side::Sell;
                 }
                 else {
-                    order.m_side = Side::Buy;
+                    order.side = Side::Buy;
                 }
 
-                order.m_orderType = OrderType::Market;
-                order.m_qty = position.m_size;
-                order.m_timeInForce = TimeInForce::GTC;
-                order.m_orderLinkId = std::to_string(ts);
-                order.m_positionIdx = position.m_positionIdx;
+                order.orderType = OrderType::Market;
+                order.qty = position.size;
+                order.timeInForce = TimeInForce::GTC;
+                order.orderLinkId = std::to_string(ts);
+                order.positionIdx = position.positionIdx;
                 const auto id = restClient->placeOrder(order);
-                logFunction(vk::LogSeverity::Info, fmt::format("Order placed, id: {}", id.m_orderId));
+                logFunction(vk::LogSeverity::Info, fmt::format("Order placed, id: {}", id.orderId));
             }
         }
     }
@@ -220,15 +220,15 @@ void testOrders() {
         constexpr int amount = -25;
 
         Order order;
-        order.m_symbol = "DOTUSDT";
-        order.m_side = Side::Buy;
-        order.m_orderType = OrderType::Market;
-        order.m_qty = lotAmount * std::abs(amount);
-        order.m_timeInForce = TimeInForce::GTC;
-        order.m_orderLinkId = std::to_string(ts);
+        order.symbol = "DOTUSDT";
+        order.side = Side::Buy;
+        order.orderType = OrderType::Market;
+        order.qty = lotAmount * std::abs(amount);
+        order.timeInForce = TimeInForce::GTC;
+        order.orderLinkId = std::to_string(ts);
 
         auto orderResponse = restClient->placeOrder(order);
-        logFunction(vk::LogSeverity::Info, fmt::format("Order Id: {}", orderResponse.m_orderId));
+        logFunction(vk::LogSeverity::Info, fmt::format("Order Id: {}", orderResponse.orderId));
     }
     catch (std::exception& e) {
         logFunction(vk::LogSeverity::Warning, fmt::format("Exception: {}", e.what()));
@@ -256,7 +256,7 @@ void testWebsockets() {
     while (true) {
         {
             if (const auto ret = wsManager->readEventTicker("BTCUSDT")) {
-                std::cout << "BTC price: " << ret->m_lastPrice << std::endl;
+                std::cout << "BTC price: " << ret->lastPrice << std::endl;
             }
             else {
                 std::cout << "Error" << std::endl;
@@ -265,7 +265,7 @@ void testWebsockets() {
 
         {
             if (const auto ret = wsManager->readEventCandlestick("BTCUSDT", CandleInterval::_1)) {
-                std::cout << "BTC open price: " << ret->m_open << std::endl;
+                std::cout << "BTC open price: " << ret->open << std::endl;
             }
             else {
                 std::cout << "Error" << std::endl;
@@ -282,7 +282,7 @@ void testTickers() {
     try {
         const auto tme = restClient->getServerTime();
         auto response = restClient->getTickers(Category::linear, "BTCUSDT");
-        logFunction(vk::LogSeverity::Info, fmt::format("Ticker: {}, fr: {}", response.m_tickers[0].m_symbol, response.m_tickers[0].m_fundingRate));
+        logFunction(vk::LogSeverity::Info, fmt::format("Ticker: {}, fr: {}", response.tickers[0].symbol, response.tickers[0].fundingRate));
     }
     catch (std::exception& e) {
         logFunction(vk::LogSeverity::Warning, fmt::format("Exception: {}", e.what()));

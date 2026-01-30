@@ -11,15 +11,15 @@ Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@gmail.com>.
 
 namespace vk {
 struct BybitFuturesExchangeConnector::P {
-    std::unique_ptr<bybit::RESTClient> m_restClient{};
+    std::unique_ptr<bybit::RESTClient> restClient{};
 };
 
 BybitFuturesExchangeConnector::BybitFuturesExchangeConnector() : m_p(std::make_unique<P>()) {
-    m_p->m_restClient = std::make_unique<bybit::RESTClient>("","");
+    m_p->restClient = std::make_unique<bybit::RESTClient>("","");
 }
 
 BybitFuturesExchangeConnector::~BybitFuturesExchangeConnector() {
-    m_p->m_restClient.reset();
+    m_p->restClient.reset();
 }
 
 std::string BybitFuturesExchangeConnector::exchangeId() const {
@@ -34,8 +34,8 @@ void BybitFuturesExchangeConnector::setLoggerCallback(const onLogMessage& onLogM
 }
 
 void BybitFuturesExchangeConnector::login(const std::tuple<std::string, std::string, std::string>& credentials) {
-    m_p->m_restClient.reset();
-    m_p->m_restClient = std::make_unique<bybit::RESTClient>(std::get<0>(credentials),
+    m_p->restClient.reset();
+    m_p->restClient = std::make_unique<bybit::RESTClient>(std::get<0>(credentials),
                                                           std::get<1>(credentials));
 }
 
@@ -47,14 +47,14 @@ Trade BybitFuturesExchangeConnector::placeOrder(const Order& order) {
 TickerPrice BybitFuturesExchangeConnector::getTickerPrice(const std::string& symbol) const {
     TickerPrice retVal;
 
-    for (const auto tickers = m_p->m_restClient->getTickers(bybit::Category::linear, symbol); const auto& ticker : tickers.m_tickers) {
+    for (const auto tickerResponse = m_p->restClient->getTickers(bybit::Category::linear, symbol); const auto& ticker : tickerResponse.tickers) {
 
-        if (ticker.m_symbol == symbol) {
-            retVal.askPrice = ticker.m_ask1Price;
-            retVal.bidPrice = ticker.m_bid1Price;
-            retVal.askQty = ticker.m_ask1Size;
-            retVal.bidQty = ticker.m_bid1Size;
-            retVal.time = tickers.m_time;
+        if (ticker.symbol == symbol) {
+            retVal.askPrice = ticker.ask1Price;
+            retVal.bidPrice = ticker.bid1Price;
+            retVal.askQty = ticker.ask1Size;
+            retVal.bidQty = ticker.bid1Size;
+            retVal.time = tickerResponse.time;
         }
     }
 
@@ -67,8 +67,8 @@ Balance BybitFuturesExchangeConnector::getAccountBalance(const std::string& curr
 }
 
 FundingRate BybitFuturesExchangeConnector::getFundingRate(const std::string& symbol) const {
-    if (const auto tickers = m_p->m_restClient->getTickers(bybit::Category::linear, symbol).m_tickers; !tickers.empty()) {
-        return {tickers[0].m_symbol, tickers[0].m_fundingRate, tickers[0].m_nextFundingTime};
+    if (const auto tickerList = m_p->restClient->getTickers(bybit::Category::linear, symbol).tickers; !tickerList.empty()) {
+        return {tickerList[0].symbol, tickerList[0].fundingRate, tickerList[0].nextFundingTime};
     }
 
     return {};
@@ -77,8 +77,8 @@ FundingRate BybitFuturesExchangeConnector::getFundingRate(const std::string& sym
 std::vector<FundingRate> BybitFuturesExchangeConnector::getFundingRates() const {
     std::vector<FundingRate> retVal;
 
-    for (const auto& ticker : m_p->m_restClient->getTickers(bybit::Category::linear, "").m_tickers) {
-        FundingRate fr = {ticker.m_symbol, ticker.m_fundingRate, ticker.m_nextFundingTime};
+    for (const auto& ticker : m_p->restClient->getTickers(bybit::Category::linear, "").tickers) {
+        FundingRate fr = {ticker.symbol, ticker.fundingRate, ticker.nextFundingTime};
         retVal.push_back(fr);
     }
 
@@ -90,6 +90,6 @@ std::vector<Ticker> BybitFuturesExchangeConnector::getTickerInfo(const std::stri
 }
 
 std::int64_t BybitFuturesExchangeConnector::getServerTime() const {
-    return m_p->m_restClient->getServerTime();
+    return m_p->restClient->getServerTime();
 }
 }

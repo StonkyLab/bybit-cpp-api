@@ -15,10 +15,10 @@ Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@gmail.com>.
 
 namespace vk::bybit {
 struct Event final : IJson {
-    std::string m_topic{};
-    ResponseType m_type{ResponseType::snapshot};
-    std::int64_t m_ts{};
-    nlohmann::json m_data{};
+    std::string topic{};
+    ResponseType type{ResponseType::snapshot};
+    std::int64_t ts{};
+    nlohmann::json data{};
 
     ~Event() override = default;
 
@@ -28,12 +28,12 @@ struct Event final : IJson {
 };
 
 struct EventTicker final : IJson {
-    std::string m_symbol{};
-    double m_ask1Price{};
-    double m_ask1Size{};
-    double m_bid1Price{};
-    double m_bid1Size{};
-    double m_lastPrice{};
+    std::string symbol{};
+    double ask1Price{};
+    double ask1Size{};
+    double bid1Price{};
+    double bid1Size{};
+    double lastPrice{};
 
     [[nodiscard]] nlohmann::json toJson() const override;
 
@@ -43,17 +43,17 @@ struct EventTicker final : IJson {
 };
 
 struct EventCandlestick final : IJson {
-    std::int64_t m_start{};
-    std::int64_t m_end{};
-    std::string m_interval{};
-    double m_open{};
-    double m_high{};
-    double m_low{};
-    double m_close{};
-    double m_volume{};
-    double m_turnover{};
-    bool m_confirm{false};
-    std::int64_t m_timestamp{};
+    std::int64_t start{};
+    std::int64_t end{};
+    std::string interval{};
+    double open{};
+    double high{};
+    double low{};
+    double close{};
+    double volume{};
+    double turnover{};
+    bool confirm{false};
+    std::int64_t timestamp{};
 
     [[nodiscard]] nlohmann::json toJson() const override;
 

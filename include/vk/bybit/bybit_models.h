@@ -15,11 +15,11 @@ Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@gmail.com>.
 
 namespace vk::bybit {
 struct Response : IJson {
-    int m_retCode{};
-    std::string m_retMsg{};
-    nlohmann::json m_retExtInfo{};
-    std::int64_t m_time{};
-    nlohmann::json m_result{};
+    int retCode{};
+    std::string retMsg{};
+    nlohmann::json retExtInfo{};
+    std::int64_t time{};
+    nlohmann::json result{};
 
     [[nodiscard]] nlohmann::json toJson() const override;
 
@@ -27,13 +27,13 @@ struct Response : IJson {
 };
 
 struct Candle final : IJson {
-    std::int64_t m_startTime{};
-    double m_open{};
-    double m_high{};
-    double m_low{};
-    double m_close{};
-    double m_volume{};
-    double m_turnover{};
+    std::int64_t startTime{};
+    double open{};
+    double high{};
+    double low{};
+    double close{};
+    double volume{};
+    double turnover{};
 
     [[nodiscard]] nlohmann::json toJson() const override;
 
@@ -41,9 +41,9 @@ struct Candle final : IJson {
 };
 
 struct Candles final : Response {
-    Category m_category{Category::linear};
-    std::string m_symbol{};
-    std::vector<Candle> m_candles{};
+    Category category{Category::linear};
+    std::string symbol{};
+    std::vector<Candle> candles{};
 
     [[nodiscard]] nlohmann::json toJson() const override;
 
@@ -51,23 +51,23 @@ struct Candles final : Response {
 };
 
 struct Coin final : IJson {
-    double m_accruedInterest{};
-    double m_availableToBorrow{};
-    double m_availableToWithdraw{};
-    double m_bonus{};
-    double m_borrowAmount{};
-    std::string m_coin{};
-    bool m_collateralSwitch{true};
-    double m_cumRealisedPnl{};
-    double m_equity{};
-    double m_locked{};
-    bool m_marginCollateral{true};
-    double m_totalOrderIM{};
-    double m_totalPositionIM{};
-    double m_totalPositionMM{};
-    double m_unrealisedPnl{};
-    double m_usdValue{};
-    double m_walletBalance{};
+    double accruedInterest{};
+    double availableToBorrow{};
+    double availableToWithdraw{};
+    double bonus{};
+    double borrowAmount{};
+    std::string coin{};
+    bool collateralSwitch{true};
+    double cumRealisedPnl{};
+    double equity{};
+    double locked{};
+    bool marginCollateral{true};
+    double totalOrderIM{};
+    double totalPositionIM{};
+    double totalPositionMM{};
+    double unrealisedPnl{};
+    double usdValue{};
+    double walletBalance{};
 
     [[nodiscard]] nlohmann::json toJson() const override;
 
@@ -75,18 +75,18 @@ struct Coin final : IJson {
 };
 
 struct AccountBalance final : IJson {
-    double m_accountIMRate{};
-    double m_accountLTV{};
-    double m_accountMMRate{};
-    AccountType m_accountType{AccountType::UNIFIED};
-    double m_totalAvailableBalance{};
-    double m_totalEquity{};
-    double m_totalInitialMargin{};
-    double m_totalMaintenanceMargin{};
-    double m_totalMarginBalance{};
-    double m_totalPerpUPL{};
-    double m_totalWalletBalance{};
-    std::vector<Coin> m_coins{};
+    double accountIMRate{};
+    double accountLTV{};
+    double accountMMRate{};
+    AccountType accountType{AccountType::UNIFIED};
+    double totalAvailableBalance{};
+    double totalEquity{};
+    double totalInitialMargin{};
+    double totalMaintenanceMargin{};
+    double totalMarginBalance{};
+    double totalPerpUPL{};
+    double totalWalletBalance{};
+    std::vector<Coin> coins{};
 
     [[nodiscard]] nlohmann::json toJson() const override;
 
@@ -94,7 +94,7 @@ struct AccountBalance final : IJson {
 };
 
 struct WalletBalance final : Response {
-    std::vector<AccountBalance> m_balances{};
+    std::vector<AccountBalance> balances{};
 
     [[nodiscard]] nlohmann::json toJson() const override;
 
@@ -102,8 +102,8 @@ struct WalletBalance final : Response {
 };
 
 struct ServerTime final : Response {
-    std::int64_t m_timeSecond{};
-    std::int64_t m_timeNano{};
+    std::int64_t timeSecond{};
+    std::int64_t timeNano{};
 
     [[nodiscard]] nlohmann::json toJson() const override;
 
@@ -111,38 +111,38 @@ struct ServerTime final : Response {
 };
 
 struct Position final : IJson {
-    int m_positionIdx{};
-    int m_riskId{};
-    double m_riskLimitValue{};
-    std::string m_symbol{};
-    Side m_side{Side::Buy};
-    double m_size{};
-    double m_avgPrice{};
-    double m_positionValue{};
-    int m_tradeMode{};
-    PositionStatus m_positionStatus{PositionStatus::Normal};
-    int m_autoAddMargin{};
-    int m_adlRankIndicator{};
-    double m_leverage{};
-    double m_positionBalance{};
-    double m_markPrice{};
-    double m_liqPrice{};
-    double m_bustPrice{};
-    double m_positionMM{};
-    double m_positionIM{};
-    TpSlMode m_tpSlMode{TpSlMode::Full};
-    double m_stopLoss{};
-    double m_takeProfit{};
-    double m_trailingStop{};
-    double m_unrealisedPnl{};
-    double m_cumRealisedPnl{};
-    bool m_isReduceOnly{false};
-    std::int64_t m_createdTime{};
-    std::int64_t m_updatedTime{};
-    std::int64_t m_seq{};
-    std::string m_mmrSysUpdateTime{};
-    std::string m_leverageSysUpdatedTime{};
-    bool m_zeroSize{true};
+    int positionIdx{};
+    int riskId{};
+    double riskLimitValue{};
+    std::string symbol{};
+    Side side{Side::Buy};
+    double size{};
+    double avgPrice{};
+    double positionValue{};
+    int tradeMode{};
+    PositionStatus positionStatus{PositionStatus::Normal};
+    int autoAddMargin{};
+    int adlRankIndicator{};
+    double leverage{};
+    double positionBalance{};
+    double markPrice{};
+    double liqPrice{};
+    double bustPrice{};
+    double positionMM{};
+    double positionIM{};
+    TpSlMode tpSlMode{TpSlMode::Full};
+    double stopLoss{};
+    double takeProfit{};
+    double trailingStop{};
+    double unrealisedPnl{};
+    double cumRealisedPnl{};
+    bool isReduceOnly{false};
+    std::int64_t createdTime{};
+    std::int64_t updatedTime{};
+    std::int64_t seq{};
+    std::string mmrSysUpdateTime{};
+    std::string leverageSysUpdatedTime{};
+    bool zeroSize{true};
 
     [[nodiscard]] nlohmann::json toJson() const override;
 
@@ -150,8 +150,8 @@ struct Position final : IJson {
 };
 
 struct Positions final : Response {
-    Category m_category{Category::linear};
-    std::vector<Position> m_positions{};
+    Category category{Category::linear};
+    std::vector<Position> positions{};
 
     [[nodiscard]] nlohmann::json toJson() const override;
 
@@ -159,9 +159,9 @@ struct Positions final : Response {
 };
 
 struct PriceFilter final : IJson {
-    double m_minPrice{};
-    double m_maxPrice{};
-    double m_tickSize{};
+    double minPrice{};
+    double maxPrice{};
+    double tickSize{};
 
     [[nodiscard]] nlohmann::json toJson() const override;
 
@@ -169,9 +169,9 @@ struct PriceFilter final : IJson {
 };
 
 struct LeverageFilter final : IJson {
-    double m_minLeverage{};
-    double m_maxLeverage{};
-    double m_leverageStep{};
+    double minLeverage{};
+    double maxLeverage{};
+    double leverageStep{};
 
     [[nodiscard]] nlohmann::json toJson() const override;
 
@@ -179,10 +179,10 @@ struct LeverageFilter final : IJson {
 };
 
 struct LotSizeFilter final : IJson {
-    double m_maxOrderQty{};
-    double m_minOrderQty{};
-    double m_qtyStep{};
-    double m_postOnlyMaxTradingQty{};
+    double maxOrderQty{};
+    double minOrderQty{};
+    double qtyStep{};
+    double postOnlyMaxTradingQty{};
 
     [[nodiscard]] nlohmann::json toJson() const override;
 
@@ -190,22 +190,21 @@ struct LotSizeFilter final : IJson {
 };
 
 struct Instrument final : IJson {
-    std::string m_symbol{};
-    ContractType m_contractType{ContractType::LinearPerpetual};
-    ContractStatus m_contractStatus{ContractStatus::Trading};
-    std::string m_baseCoin{};
-    std::string m_quoteCoin{};
-    std::int64_t m_launchTime{};
-    std::int64_t m_deliveryTime{};
-    double m_deliveryFeeRate{};
-    int m_priceScale{};
-    bool m_unifiedMarginTrade{true};
-    int m_fundingInterval{};
-    std::string m_settleCoin{};
-
-    LeverageFilter m_leverageFilter{};
-    PriceFilter m_priceFilter{};
-    LotSizeFilter m_lotSizeFilter{};
+    std::string symbol{};
+    ContractType contractType{ContractType::LinearPerpetual};
+    ContractStatus contractStatus{ContractStatus::Trading};
+    std::string baseCoin{};
+    std::string quoteCoin{};
+    std::int64_t launchTime{};
+    std::int64_t deliveryTime{};
+    double deliveryFeeRate{};
+    int priceScale{};
+    bool unifiedMarginTrade{true};
+    int fundingInterval{};
+    std::string settleCoin{};
+    LeverageFilter leverageFilter{};
+    PriceFilter priceFilter{};
+    LotSizeFilter lotSizeFilter{};
 
     [[nodiscard]] nlohmann::json toJson() const override;
 
@@ -213,9 +212,9 @@ struct Instrument final : IJson {
 };
 
 struct Instruments final : Response {
-    Category m_category{Category::linear};
-    std::vector<Instrument> m_instruments{};
-    std::string m_nextPageCursor{};
+    Category category{Category::linear};
+    std::vector<Instrument> instruments{};
+    std::string nextPageCursor{};
 
     [[nodiscard]] nlohmann::json toJson() const override;
 
@@ -223,27 +222,27 @@ struct Instruments final : Response {
 };
 
 struct Order final : IJson {
-    Category m_category{Category::linear};
-    std::string m_symbol{};
-    Side m_side{Side::Buy};
-    OrderType m_orderType{OrderType::Market};
-    double m_qty{};
-    double m_price{};
-    TimeInForce m_timeInForce{TimeInForce::GTC};
-    std::int64_t m_positionIdx{};
-    std::string m_orderLinkId{};
-    double m_takeProfit{};
-    double m_stopLoss{};
-    TriggerPriceType m_tpTriggerBy{TriggerPriceType::LastPrice};
-    TriggerPriceType m_slTriggerBy{TriggerPriceType::LastPrice};
-    bool m_reduceOnly{false};
-    bool m_closeOnTrigger{false};
+    Category category{Category::linear};
+    std::string symbol{};
+    Side side{Side::Buy};
+    OrderType orderType{OrderType::Market};
+    double qty{};
+    double price{};
+    TimeInForce timeInForce{TimeInForce::GTC};
+    std::int64_t positionIdx{};
+    std::string orderLinkId{};
+    double takeProfit{};
+    double stopLoss{};
+    TriggerPriceType tpTriggerBy{TriggerPriceType::LastPrice};
+    TriggerPriceType slTriggerBy{TriggerPriceType::LastPrice};
+    bool reduceOnly{false};
+    bool closeOnTrigger{false};
 
     /// priceStep is not part of Bybit API, it serves for formatting only
-    double m_priceStep{0.001};
+    double priceStep{0.001};
 
     /// m_qtyStep is not part of Bybit API, it serves for formatting only
-    double m_qtyStep{0.001};
+    double qtyStep{0.001};
 
     [[nodiscard]] nlohmann::json toJson() const override;
 
@@ -251,8 +250,8 @@ struct Order final : IJson {
 };
 
 struct OrderId final : Response {
-    std::string m_orderId{};
-    std::string m_orderLinkId{};
+    std::string orderId{};
+    std::string orderLinkId{};
 
     [[nodiscard]] nlohmann::json toJson() const override;
 
@@ -260,30 +259,30 @@ struct OrderId final : Response {
 };
 
 struct OrderResponse final : IJson {
-    std::string m_orderId{};
-    std::string m_orderLinkId{};
-    std::string m_symbol{};
-    double m_price{};
-    double m_qty{};
-    Side m_side{Side::Buy};
-    std::int64_t m_positionIdx{};
-    OrderStatus m_orderStatus{OrderStatus::Created};
-    std::string m_rejectReason{};
-    double m_avgPrice{};
-    double m_cumExecQty{};
-    double m_cumExecValue{};
-    double m_cumExecFee{};
-    TimeInForce m_timeInForce{TimeInForce::GTC};
-    OrderType m_orderType{OrderType::Market};
-    bool m_reduceOnly{false};
-    bool m_closeOnTrigger{false};
-    double m_lastPriceOnCreated{};
-    std::string m_createdTime{};
-    std::string m_updatedTime{};
-    double m_takeProfit{};
-    double m_stopLoss{};
-    TriggerPriceType m_tpTriggerBy{TriggerPriceType::LastPrice};
-    TriggerPriceType m_slTriggerBy{TriggerPriceType::LastPrice};
+    std::string orderId{};
+    std::string orderLinkId{};
+    std::string symbol{};
+    double price{};
+    double qty{};
+    Side side{Side::Buy};
+    std::int64_t positionIdx{};
+    OrderStatus orderStatus{OrderStatus::Created};
+    std::string rejectReason{};
+    double avgPrice{};
+    double cumExecQty{};
+    double cumExecValue{};
+    double cumExecFee{};
+    TimeInForce timeInForce{TimeInForce::GTC};
+    OrderType orderType{OrderType::Market};
+    bool reduceOnly{false};
+    bool closeOnTrigger{false};
+    double lastPriceOnCreated{};
+    std::string createdTime{};
+    std::string updatedTime{};
+    double takeProfit{};
+    double stopLoss{};
+    TriggerPriceType tpTriggerBy{TriggerPriceType::LastPrice};
+    TriggerPriceType slTriggerBy{TriggerPriceType::LastPrice};
 
     [[nodiscard]] nlohmann::json toJson() const override;
 
@@ -291,8 +290,8 @@ struct OrderResponse final : IJson {
 };
 
 struct OrdersResponse final : Response {
-    Category m_category{Category::linear};
-    std::vector<OrderResponse> m_orders{};
+    Category category{Category::linear};
+    std::vector<OrderResponse> orders{};
 
     [[nodiscard]] nlohmann::json toJson() const override;
 
@@ -300,9 +299,9 @@ struct OrdersResponse final : Response {
 };
 
 struct FundingRate final : IJson {
-    std::string m_symbol{};
-    double m_fundingRate{};
-    std::int64_t m_fundingRateTimestamp{};
+    std::string symbol{};
+    double fundingRate{};
+    std::int64_t fundingRateTimestamp{};
 
     [[nodiscard]] nlohmann::json toJson() const override;
 
@@ -310,8 +309,8 @@ struct FundingRate final : IJson {
 };
 
 struct FundingRates final : Response {
-    Category m_category{Category::linear};
-    std::vector<FundingRate> m_fundingRates{};
+    Category category{Category::linear};
+    std::vector<FundingRate> fundingRates{};
 
     [[nodiscard]] nlohmann::json toJson() const override;
 
@@ -319,24 +318,24 @@ struct FundingRates final : Response {
 };
 
 struct Ticker final : IJson {
-    std::string m_symbol{};
-    double m_lastPrice{};
-    double m_indexPrice{};
-    double m_markPrice{};
-    double m_prevPrice24h{};
-    double m_price24hPcnt{};
-    double m_highPrice24h{};
-    double m_prevPrice1h{};
-    std::int64_t m_openInterest{};
-    double m_openInterestValue{};
-    double m_turnover24h{};
-    double m_volume24h{};
-    double m_fundingRate{};
-    std::int64_t m_nextFundingTime{};
-    double m_ask1Size{};
-    double m_bid1Price{};
-    double m_ask1Price{};
-    double m_bid1Size{};
+    std::string symbol{};
+    double lastPrice{};
+    double indexPrice{};
+    double markPrice{};
+    double prevPrice24h{};
+    double price24hPcnt{};
+    double highPrice24h{};
+    double prevPrice1h{};
+    std::int64_t openInterest{};
+    double openInterestValue{};
+    double turnover24h{};
+    double volume24h{};
+    double fundingRate{};
+    std::int64_t nextFundingTime{};
+    double ask1Size{};
+    double bid1Price{};
+    double ask1Price{};
+    double bid1Size{};
 
     [[nodiscard]] nlohmann::json toJson() const override;
 
@@ -344,8 +343,8 @@ struct Ticker final : IJson {
 };
 
 struct Tickers final : Response {
-    Category m_category{Category::linear};
-    std::vector<Ticker> m_tickers{};
+    Category category{Category::linear};
+    std::vector<Ticker> tickers{};
 
     [[nodiscard]] nlohmann::json toJson() const override;
 

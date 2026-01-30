@@ -16,10 +16,10 @@ nlohmann::json Event::toJson() const {
 }
 
 void Event::fromJson(const nlohmann::json& json) {
-    readValue<std::string>(json, "topic", m_topic);
-    readMagicEnum<ResponseType>(json, "type", m_type);
-    readValue<std::int64_t>(json, "ts", m_ts);
-    m_data = json["data"];
+    readValue<std::string>(json, "topic", topic);
+    readMagicEnum<ResponseType>(json, "type", type);
+    readValue<std::int64_t>(json, "ts", ts);
+    data = json["data"];
 }
 
 nlohmann::json EventTicker::toJson() const {
@@ -27,21 +27,21 @@ nlohmann::json EventTicker::toJson() const {
 }
 
 void EventTicker::fromJson(const nlohmann::json& json) {
-    readValue<std::string>(json, "symbol", m_symbol);
-    m_ask1Price = readStringAsDouble(json, "ask1Price", m_ask1Price);
-    m_ask1Size = readStringAsDouble(json, "ask1Size", m_ask1Size);
-    m_bid1Price = readStringAsDouble(json, "bid1Price", m_bid1Price);
-    m_bid1Size = readStringAsDouble(json, "bid1Size", m_bid1Size);
-    m_lastPrice = readStringAsDouble(json, "lastPrice", m_lastPrice);
+    readValue<std::string>(json, "symbol", symbol);
+    ask1Price = readStringAsDouble(json, "ask1Price", ask1Price);
+    ask1Size = readStringAsDouble(json, "ask1Size", ask1Size);
+    bid1Price = readStringAsDouble(json, "bid1Price", bid1Price);
+    bid1Size = readStringAsDouble(json, "bid1Size", bid1Size);
+    lastPrice = readStringAsDouble(json, "lastPrice", lastPrice);
 }
 
 void EventTicker::loadEventData(const Event& event) {
-    switch (event.m_type) {
+    switch (event.type) {
     case ResponseType::snapshot:
-        fromJson(event.m_data);
+        fromJson(event.data);
         break;
     case ResponseType::delta:
-        fromJson(event.m_data);
+        fromJson(event.data);
         break;
     }
 }
@@ -51,16 +51,16 @@ nlohmann::json EventCandlestick::toJson() const {
 }
 
 void EventCandlestick::fromJson(const nlohmann::json& json) {
-    readValue<std::int64_t>(json, "start", m_start);
-    readValue<std::int64_t>(json, "end", m_end);
-    readValue<std::string>(json, "interval", m_interval);
-    m_open = readStringAsDouble(json, "open", m_open);
-    m_high = readStringAsDouble(json, "high", m_high);
-    m_low = readStringAsDouble(json, "low", m_low);
-    m_close = readStringAsDouble(json, "close", m_close);
-    m_volume = readStringAsDouble(json, "volume", m_volume);
-    m_turnover = readStringAsDouble(json, "turnover", m_turnover);
-    readValue<bool>(json, "confirm", m_confirm);
-    readValue<std::int64_t>(json, "timestamp", m_timestamp);
+    readValue<std::int64_t>(json, "start", start);
+    readValue<std::int64_t>(json, "end", end);
+    readValue<std::string>(json, "interval", interval);
+    open = readStringAsDouble(json, "open", open);
+    high = readStringAsDouble(json, "high", high);
+    low = readStringAsDouble(json, "low", low);
+    close = readStringAsDouble(json, "close", close);
+    volume = readStringAsDouble(json, "volume", volume);
+    turnover = readStringAsDouble(json, "turnover", turnover);
+    readValue<bool>(json, "confirm", confirm);
+    readValue<std::int64_t>(json, "timestamp", timestamp);
 }
 }

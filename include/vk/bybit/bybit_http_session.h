@@ -30,10 +30,9 @@ public:
 
     ~HTTPSession();
 
-    http::response<http::string_body> get(const std::string& path,
-                                          const std::map<std::string, std::string>& parameters) const;
+    [[nodiscard]] http::response<http::string_body> get(const std::string& path, const std::map<std::string, std::string>& parameters) const;
 
-    http::response<http::string_body> post(const std::string& path, const nlohmann::json& json) const;
+    [[nodiscard]] http::response<http::string_body> post(const std::string& path, const nlohmann::json& json) const;
 };
-}
-#endif //INCLUDE_VK_BYBIT_HTTP_SESSION_H
+} // namespace vk::bybit
+#endif // INCLUDE_VK_BYBIT_HTTP_SESSION_H
