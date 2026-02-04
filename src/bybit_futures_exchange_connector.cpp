@@ -1,5 +1,5 @@
 /**
-Bybit Exchange Connector
+Bybit Futures Exchange Connector
 
 Licensed under the MIT License <http://opensource.org/licenses/MIT>.
 SPDX-License-Identifier: MIT
@@ -23,7 +23,7 @@ BybitFuturesExchangeConnector::~BybitFuturesExchangeConnector() {
 }
 
 std::string BybitFuturesExchangeConnector::exchangeId() const {
-    return std::string(magic_enum::enum_name(ExchangeId::MEXCFutures));
+    return std::string(magic_enum::enum_name(ExchangeId::BybitFutures));
 }
 
 std::string BybitFuturesExchangeConnector::version() const {

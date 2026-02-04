@@ -1,27 +1,27 @@
 /**
-Bybit Futures Exchange Connector
+Bybit Spot Exchange Connector
 
 Licensed under the MIT License <http://opensource.org/licenses/MIT>.
 SPDX-License-Identifier: MIT
 Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@gmail.com>.
 */
 
-#ifndef INCLUDE_VK_BYBIT_FUTURES_EXCHANGE_CONNECTOR_H
-#define INCLUDE_VK_BYBIT_FUTURES_EXCHANGE_CONNECTOR_H
+#ifndef INCLUDE_VK_BYBIT_SPOT_EXCHANGE_CONNECTOR_H
+#define INCLUDE_VK_BYBIT_SPOT_EXCHANGE_CONNECTOR_H
 
 #include "vk/interface/i_exchange_connector.h"
 #include "vk/common/module_factory.h"
 #include <memory>
 
 namespace vk {
-class BybitFuturesExchangeConnector final : public IExchangeConnector {
+class BybitSpotExchangeConnector final : public IExchangeConnector {
     struct P;
     std::unique_ptr<P> m_p{};
 
 public:
-    BybitFuturesExchangeConnector();
+    BybitSpotExchangeConnector();
 
-    ~BybitFuturesExchangeConnector() override;
+    ~BybitSpotExchangeConnector() override;
 
     [[nodiscard]] std::string exchangeId() const override;
 
@@ -46,8 +46,8 @@ public:
     [[nodiscard]] std::int64_t getServerTime() const override;
 
     static std::shared_ptr<IExchangeConnector> createInstance() {
-        return std::make_shared<BybitFuturesExchangeConnector>();
+        return std::make_shared<BybitSpotExchangeConnector>();
     }
 };
 }
-#endif //INCLUDE_VK_BYBIT_FUTURES_EXCHANGE_CONNECTOR_H
+#endif //INCLUDE_VK_BYBIT_SPOT_EXCHANGE_CONNECTOR_H
