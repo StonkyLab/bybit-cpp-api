@@ -45,6 +45,8 @@ public:
 
     [[nodiscard]] std::int64_t getServerTime() const override;
 
+    [[nodiscard]] std::vector<Position> getPositionInfo(const std::string& symbol) const override;
+
     static std::shared_ptr<IExchangeConnector> createInstance() {
         return std::make_shared<BybitFuturesExchangeConnector>();
     }

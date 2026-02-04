@@ -14,29 +14,19 @@ struct BybitFuturesExchangeConnector::P {
     std::unique_ptr<bybit::RESTClient> restClient{};
 };
 
-BybitFuturesExchangeConnector::BybitFuturesExchangeConnector() : m_p(std::make_unique<P>()) {
-    m_p->restClient = std::make_unique<bybit::RESTClient>("","");
-}
+BybitFuturesExchangeConnector::BybitFuturesExchangeConnector() : m_p(std::make_unique<P>()) { m_p->restClient = std::make_unique<bybit::RESTClient>("", ""); }
 
-BybitFuturesExchangeConnector::~BybitFuturesExchangeConnector() {
-    m_p->restClient.reset();
-}
+BybitFuturesExchangeConnector::~BybitFuturesExchangeConnector() { m_p->restClient.reset(); }
 
-std::string BybitFuturesExchangeConnector::exchangeId() const {
-    return std::string(magic_enum::enum_name(ExchangeId::BybitFutures));
-}
+std::string BybitFuturesExchangeConnector::exchangeId() const { return std::string(magic_enum::enum_name(ExchangeId::BybitFutures)); }
 
-std::string BybitFuturesExchangeConnector::version() const {
-    return "1.0.4";
-}
+std::string BybitFuturesExchangeConnector::version() const { return "1.0.4"; }
 
-void BybitFuturesExchangeConnector::setLoggerCallback(const onLogMessage& onLogMessageCB) {
-}
+void BybitFuturesExchangeConnector::setLoggerCallback(const onLogMessage& onLogMessageCB) {}
 
 void BybitFuturesExchangeConnector::login(const std::tuple<std::string, std::string, std::string>& credentials) {
     m_p->restClient.reset();
-    m_p->restClient = std::make_unique<bybit::RESTClient>(std::get<0>(credentials),
-                                                          std::get<1>(credentials));
+    m_p->restClient = std::make_unique<bybit::RESTClient>(std::get<0>(credentials), std::get<1>(credentials));
 }
 
 Trade BybitFuturesExchangeConnector::placeOrder(const Order& order) {
@@ -47,8 +37,7 @@ Trade BybitFuturesExchangeConnector::placeOrder(const Order& order) {
 TickerPrice BybitFuturesExchangeConnector::getTickerPrice(const std::string& symbol) const {
     TickerPrice retVal;
 
-    for (const auto tickerResponse = m_p->restClient->getTickers(bybit::Category::linear, symbol); const auto& ticker : tickerResponse.tickers) {
-
+    for (const auto tickerResponse = m_p->restClient->getTickers(bybit::Category::linear, symbol); const auto& ticker: tickerResponse.tickers) {
         if (ticker.symbol == symbol) {
             retVal.askPrice = ticker.ask1Price;
             retVal.bidPrice = ticker.bid1Price;
@@ -77,7 +66,7 @@ FundingRate BybitFuturesExchangeConnector::getFundingRate(const std::string& sym
 std::vector<FundingRate> BybitFuturesExchangeConnector::getFundingRates() const {
     std::vector<FundingRate> retVal;
 
-    for (const auto& ticker : m_p->restClient->getTickers(bybit::Category::linear, "").tickers) {
+    for (const auto& ticker: m_p->restClient->getTickers(bybit::Category::linear, "").tickers) {
         FundingRate fr = {ticker.symbol, ticker.fundingRate, ticker.nextFundingTime};
         retVal.push_back(fr);
     }
@@ -89,7 +78,29 @@ std::vector<Ticker> BybitFuturesExchangeConnector::getTickerInfo(const std::stri
     throw std::runtime_error("Unimplemented: BybitFuturesExchangeConnector::getTickerInfo");
 }
 
-std::int64_t BybitFuturesExchangeConnector::getServerTime() const {
-    return m_p->restClient->getServerTime();
+std::int64_t BybitFuturesExchangeConnector::getServerTime() const { return m_p->restClient->getServerTime(); }
+
+std::vector<Position> BybitFuturesExchangeConnector::getPositionInfo(const std::string& symbol) const {
+    std::vector<Position> retVal;
+
+    for (const auto positions = m_p->restClient->getPositionInfo(bybit::Category::linear, symbol); const auto& bybitPosition: positions) {
+        Position position;
+        position.symbol = bybitPosition.symbol;
+        position.avgPrice = bybitPosition.avgPrice;
+        position.createdTime = bybitPosition.createdTime;
+        position.updatedTime = bybitPosition.updatedTime;
+        position.leverage = bybitPosition.leverage;
+        position.value = bybitPosition.positionValue;
+
+        if (bybitPosition.side == bybit::Side::Buy) {
+            position.side = Side::Buy;
+        } else {
+            position.side = Side::Sell;
+        }
+
+        retVal.push_back(position);
+    }
+
+    return retVal;
 }
-}
+} // namespace vk

@@ -53,7 +53,8 @@ if (MODULE_MANAGER)
 
     set(MODULE_SOURCES
             src/bybit_futures_exchange_connector.cpp
-            src/bybit_spot_exchange_connector.cpp)
+            src/bybit_spot_exchange_connector.cpp
+            src/bybit_module.cpp)
 endif ()
 
 if (MODULE_MANAGER)
