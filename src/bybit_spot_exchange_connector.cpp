@@ -92,5 +92,11 @@ std::vector<Position> BybitSpotExchangeConnector::getPositionInfo(const std::str
 
     return retVal;
 }
+std::vector<FundingRate> BybitSpotExchangeConnector::getHistoricalFundingRates(const std::string& symbol, std::int64_t startTime, std::int64_t endTime) const {
+    throw std::runtime_error("Unimplemented: BybitSpotExchangeConnector::getHistoricalFundingRates");
+}
+std::vector<Candle> BybitSpotExchangeConnector::getHistoricalCandles(const std::string& symbol, CandleInterval interval, std::int64_t startTime, std::int64_t endTime) const {
+    throw std::runtime_error("Unimplemented: BybitSpotExchangeConnector::getHistoricalCandles");
+}
 
 } // namespace vk
