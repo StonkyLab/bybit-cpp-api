@@ -41,15 +41,17 @@ public:
 
     [[nodiscard]] std::vector<FundingRate> getFundingRates() const override;
 
-    [[nodiscard]] std::vector<Ticker> getTickerInfo(const std::string& symbol) const override;
+    [[nodiscard]] std::vector<Ticker> getTickerInfo(const std::string &symbol) const override;
 
     [[nodiscard]] std::int64_t getServerTime() const override;
 
-    [[nodiscard]] std::vector<Position> getPositionInfo(const std::string& symbol) const override;
+    [[nodiscard]] std::vector<Position> getPositionInfo(const std::string &symbol) const override;
 
-    static std::shared_ptr<IExchangeConnector> createInstance() {
-        return std::make_shared<BybitFuturesExchangeConnector>();
-    }
+    [[nodiscard]] std::vector<FundingRate> getHistoricalFundingRates(const std::string &symbol, std::int64_t startTime, std::int64_t endTime) const override;
+
+    [[nodiscard]] std::vector<Candle> getHistoricalCandles(const std::string &symbol, CandleInterval interval, std::int64_t startTime, std::int64_t endTime) const override;
+
+    static std::shared_ptr<IExchangeConnector> createInstance() { return std::make_shared<BybitFuturesExchangeConnector>(); }
 };
-}
-#endif //INCLUDE_VK_BYBIT_FUTURES_EXCHANGE_CONNECTOR_H
+} // namespace vk
+#endif // INCLUDE_VK_BYBIT_FUTURES_EXCHANGE_CONNECTOR_H

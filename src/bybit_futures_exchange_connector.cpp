@@ -103,4 +103,65 @@ std::vector<Position> BybitFuturesExchangeConnector::getPositionInfo(const std::
 
     return retVal;
 }
+
+namespace {
+bybit::CandleInterval toBybitInterval(const CandleInterval interval) {
+    switch (interval) {
+        case CandleInterval::_1m: return bybit::CandleInterval::_1;
+        case CandleInterval::_3m: return bybit::CandleInterval::_3;
+        case CandleInterval::_5m: return bybit::CandleInterval::_5;
+        case CandleInterval::_15m: return bybit::CandleInterval::_15;
+        case CandleInterval::_30m: return bybit::CandleInterval::_30;
+        case CandleInterval::_1h: return bybit::CandleInterval::_60;
+        case CandleInterval::_2h: return bybit::CandleInterval::_120;
+        case CandleInterval::_4h: return bybit::CandleInterval::_240;
+        case CandleInterval::_6h: return bybit::CandleInterval::_360;
+        case CandleInterval::_12h: return bybit::CandleInterval::_720;
+        case CandleInterval::_1d: return bybit::CandleInterval::_D;
+        case CandleInterval::_1w: return bybit::CandleInterval::_W;
+        case CandleInterval::_1M: return bybit::CandleInterval::_M;
+        default: return bybit::CandleInterval::_60;
+    }
+}
+}  // namespace
+
+std::vector<FundingRate> BybitFuturesExchangeConnector::getHistoricalFundingRates(
+    const std::string& symbol, const std::int64_t startTime, const std::int64_t endTime) const {
+    std::vector<FundingRate> retVal;
+
+    for (const auto& bybitFr : m_p->restClient->getFundingRates(bybit::Category::linear, symbol, startTime, endTime)) {
+        FundingRate fr;
+        fr.symbol = bybitFr.symbol;
+        fr.fundingRate = bybitFr.fundingRate;
+        fr.fundingTime = bybitFr.fundingRateTimestamp;
+        retVal.push_back(fr);
+    }
+
+    // Bybit returns newest first, we need chronological order
+    std::ranges::sort(retVal, [](const auto& a, const auto& b) { return a.fundingTime < b.fundingTime; });
+
+    return retVal;
+}
+
+std::vector<Candle> BybitFuturesExchangeConnector::getHistoricalCandles(
+    const std::string& symbol, const CandleInterval interval,
+    const std::int64_t startTime, const std::int64_t endTime) const {
+    std::vector<Candle> retVal;
+
+    // REST client handles pagination internally
+    for (const auto& bybitCandle : m_p->restClient->getHistoricalPrices(
+             bybit::Category::linear, symbol, toBybitInterval(interval), startTime, endTime)) {
+        Candle c;
+        c.openTime = bybitCandle.startTime;
+        c.open = bybitCandle.open;
+        c.high = bybitCandle.high;
+        c.low = bybitCandle.low;
+        c.close = bybitCandle.close;
+        c.volume = bybitCandle.volume;
+        retVal.push_back(c);
+    }
+
+    return retVal;
+}
+
 } // namespace vk
