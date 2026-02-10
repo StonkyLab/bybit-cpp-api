@@ -12,7 +12,6 @@ Copyright (c) 2026 Vitezslav Kot <vitezslav.kot@gmail.com>.
 #include "bybit_futures_exchange_connector.h"
 #include "bybit_spot_exchange_connector.h"
 #include "vk/common/module_factory.h"
-#include "vk/interface/exchange_enums.h"
 #include "vk/interface/i_module_factory.h"
 #include "vk/utils//magic_enum_wrapper.hpp"
 
@@ -24,8 +23,8 @@ BOOST_SYMBOL_EXPORT IModuleFactory *getModuleFactory() {
         factoryInfo.m_description = "Bybit CEX";
 
         g_moduleFactory = new ModuleFactory(factoryInfo);
-        g_moduleFactory->registerClassByName<IExchangeConnector>(std::string(magic_enum::enum_name(ExchangeId::BybitFutures)), &BybitFuturesExchangeConnector::createInstance);
-        g_moduleFactory->registerClassByName<IExchangeConnector>(std::string(magic_enum::enum_name(ExchangeId::BybitSpot)), &BybitSpotExchangeConnector::createInstance);
+        g_moduleFactory->registerClassByName<IExchangeConnector>(std::string(magic_enum::enum_name(IExchangeConnector::ExchangeId::BybitFutures)), &BybitFuturesExchangeConnector::createInstance);
+        g_moduleFactory->registerClassByName<IExchangeConnector>(std::string(magic_enum::enum_name(IExchangeConnector::ExchangeId::BybitSpot)), &BybitSpotExchangeConnector::createInstance);
     } else {
         return nullptr;
     }
