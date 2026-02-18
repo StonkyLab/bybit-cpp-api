@@ -63,8 +63,8 @@ std::vector<FundingRate> BybitSpotExchangeConnector::getFundingRates() const {
     throw std::runtime_error("BybitSpotExchangeConnector::getFundingRates - SPOT does not have funding rates");
 }
 
-std::vector<Ticker> BybitSpotExchangeConnector::getTickerInfo(const std::string& symbol) const {
-    throw std::runtime_error("Unimplemented: BybitSpotExchangeConnector::getTickerInfo");
+std::vector<Symbol> BybitSpotExchangeConnector::getSymbolInfo(const std::string& symbol) const {
+    throw std::runtime_error("Unimplemented: BybitSpotExchangeConnector::getSymbolInfo");
 }
 
 std::int64_t BybitSpotExchangeConnector::getServerTime() const { return m_p->restClient->getServerTime(); }

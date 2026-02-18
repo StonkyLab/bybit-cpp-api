@@ -41,7 +41,7 @@ public:
 
     [[nodiscard]] std::vector<FundingRate> getFundingRates() const override;
 
-    [[nodiscard]] std::vector<Ticker> getTickerInfo(const std::string &symbol) const override;
+    [[nodiscard]] std::vector<Symbol> getSymbolInfo(const std::string &symbol) const override;
 
     [[nodiscard]] std::int64_t getServerTime() const override;
 

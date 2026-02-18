@@ -74,8 +74,8 @@ std::vector<FundingRate> BybitFuturesExchangeConnector::getFundingRates() const 
     return retVal;
 }
 
-std::vector<Ticker> BybitFuturesExchangeConnector::getTickerInfo(const std::string& symbol) const {
-    throw std::runtime_error("Unimplemented: BybitFuturesExchangeConnector::getTickerInfo");
+std::vector<Symbol> BybitFuturesExchangeConnector::getSymbolInfo(const std::string& symbol) const {
+    throw std::runtime_error("Unimplemented: BybitFuturesExchangeConnector::getSymbolInfo");
 }
 
 std::int64_t BybitFuturesExchangeConnector::getServerTime() const { return m_p->restClient->getServerTime(); }
