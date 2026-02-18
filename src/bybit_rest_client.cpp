@@ -53,10 +53,10 @@ struct RateLimiter {
 			
 			// Log for debugging
 #ifdef VERBOSE_LOG
-			spdlog::debug("RateLimit: Remaining={}, ResetTime={}, LocalMode={}", m_remaining, m_resetTime, !m_serverHeadersFound);
+			spdlog::debug(fmt::format("RateLimit: Remaining={}, ResetTime={}, LocalMode={}", remaining, resetTime, !serverHeadersFound));
 #endif
 		} catch (const std::exception& e) {
-			spdlog::warn("Failed to parse rate limit headers: {}", e.what());
+			spdlog::warn(fmt::format("Failed to parse rate limit headers: {}", e.what()));
 		}
 	}
 
@@ -71,7 +71,7 @@ struct RateLimiter {
                 if (resetTime > now) {
                     const auto waitTime = resetTime - now + 50; // +50ms buffer
 #ifdef VERBOSE_LOG
-                    spdlog::info("Rate limit reached (Server). Waiting for {} ms", waitTime);
+                    spdlog::info(fmt::format("Rate limit reached (Server). Waiting for {} ms", waitTime));
 #endif
                     std::this_thread::sleep_for(std::chrono::milliseconds(waitTime));
                 }
@@ -89,7 +89,7 @@ struct RateLimiter {
 
                 if (const auto waitTime = (oldest + windowSizeMs) - now + 10; waitTime > 0) {
 #ifdef VERBOSE_LOG
-                    spdlog::info("Rate limit reached (Local). Waiting for {} ms", waitTime);
+                    spdlog::info(fmt::format("Rate limit reached (Local). Waiting for {} ms", waitTime));
 #endif
                     std::this_thread::sleep_for(std::chrono::milliseconds(waitTime));
                     
