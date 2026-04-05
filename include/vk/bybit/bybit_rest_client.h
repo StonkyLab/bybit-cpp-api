@@ -90,7 +90,8 @@ public:
      * @see https://bybit-exchange.github.io/docs/v5/market/instrument
      */
     [[nodiscard]] std::vector<Instrument> getInstrumentsInfo(Category category, const std::string& symbol = "",
-                                                             bool force = false) const;
+                                                             bool force = false,
+                                                             const std::string& status = "") const;
 
     /**
      * Switching between One-Way Mode and Hedge Mode

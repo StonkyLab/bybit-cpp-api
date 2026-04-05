@@ -209,7 +209,8 @@ public:
 	}
 
 	Instruments getInstrumentsInfo(const Category category, const std::string &symbol,
-	                               const std::string &cursor) const {
+	                               const std::string &cursor,
+	                               const std::string &status = "") const {
 		const std::string path = "/v5/market/instruments-info";
 		std::map<std::string, std::string> parameters;
 		parameters.insert_or_assign("category", magic_enum::enum_name(category));
@@ -221,7 +222,11 @@ public:
 		if (!cursor.empty()) {
 			parameters.insert_or_assign("cursor", cursor);
 		}
-        
+
+		if (!status.empty()) {
+			parameters.insert_or_assign("status", status);
+		}
+
         // Wait if rate limited
         rateLimiter.wait();
 
@@ -336,7 +341,24 @@ std::vector<Position> RESTClient::getPositionInfo(const Category category, const
 }
 
 std::vector<Instrument>
-RESTClient::getInstrumentsInfo(const Category category, const std::string &symbol, const bool force) const {
+RESTClient::getInstrumentsInfo(const Category category, const std::string &symbol, const bool force,
+                               const std::string &status) const {
+	// Status-filtered requests always fetch fresh and do not touch the cache
+	if (!status.empty()) {
+		Instruments instr;
+		std::vector<Instrument> temp;
+
+		do {
+			instr = m_p->getInstrumentsInfo(category, symbol, instr.nextPageCursor, status);
+
+			for (const auto &instrument: instr.instruments) {
+				temp.push_back(instrument);
+			}
+		} while (!instr.nextPageCursor.empty());
+
+		return temp;
+	}
+
 	if (m_p->getInstruments().instruments.empty() || force) {
 		Instruments instr;
 		std::vector<Instrument> temp;
