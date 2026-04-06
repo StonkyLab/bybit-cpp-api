@@ -11,6 +11,8 @@ Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@gmail.com>.
 #include "vk/bybit/bybit.h"
 #include "vk/utils/utils.h"
 #include <mutex>
+#include <thread>
+#include <chrono>
 #include <spdlog/spdlog.h>
 #include <deque>
 #include <regex>
@@ -117,7 +119,7 @@ private:
 public:
 	RESTClient *parent = nullptr;
 	std::shared_ptr<HTTPSession> httpSession;
-	std::shared_ptr<HTTPSession> publicHttpSession;
+	mutable std::shared_ptr<HTTPSession> publicHttpSession;
 	mutable RateLimiter rateLimiter;
 
 	explicit P(RESTClient *parent) {
@@ -125,20 +127,30 @@ public:
 	}
 
 	[[nodiscard]] std::vector<std::string> fetchPublicSpotSymbols() const {
-		try {
-			const auto response = publicHttpSession->get("/spot/", {});
-			const std::string &body = response.body();
-			std::vector<std::string> symbols;
-			const std::regex linkRegex(R"re(href="([A-Z0-9]+)")re");
-			auto it = std::sregex_iterator(body.begin(), body.end(), linkRegex);
-			for (; it != std::sregex_iterator(); ++it) {
-				symbols.push_back((*it)[1].str());
+		constexpr int maxRetries = 3;
+		for (int attempt = 0; attempt < maxRetries; ++attempt) {
+			try {
+				const auto response = publicHttpSession->get("/spot/", {});
+				const std::string &body = response.body();
+				std::vector<std::string> symbols;
+				const std::regex linkRegex(R"re(href="([A-Z0-9]+)")re");
+				auto it = std::sregex_iterator(body.begin(), body.end(), linkRegex);
+				for (; it != std::sregex_iterator(); ++it) {
+					symbols.push_back((*it)[1].str());
+				}
+				return symbols;
+			} catch (const std::exception &e) {
+				if (attempt < maxRetries - 1) {
+					spdlog::warn(fmt::format("Failed to fetch public spot symbols (attempt {}/{}): {}, retrying...",
+					                        attempt + 1, maxRetries, e.what()));
+					publicHttpSession = std::make_shared<HTTPSession>("", "", "public.bybit.com");
+					std::this_thread::sleep_for(std::chrono::seconds(1 << attempt));
+				} else {
+					spdlog::warn(fmt::format("Failed to fetch public spot symbols: {}", e.what()));
+				}
 			}
-			return symbols;
-		} catch (const std::exception &e) {
-			spdlog::warn(fmt::format("Failed to fetch public spot symbols: {}", e.what()));
-			return {};
 		}
+		return {};
 	}
 
 	[[nodiscard]] Instruments getInstruments() const {
