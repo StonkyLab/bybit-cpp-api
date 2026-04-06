@@ -13,6 +13,8 @@ Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@gmail.com>.
 #include <mutex>
 #include <spdlog/spdlog.h>
 #include <deque>
+#include <regex>
+#include <set>
 
 namespace vk::bybit {
 template<typename ValueType>
@@ -115,10 +117,28 @@ private:
 public:
 	RESTClient *parent = nullptr;
 	std::shared_ptr<HTTPSession> httpSession;
-	mutable RateLimiter rateLimiter; // Add RateLimiter
+	std::shared_ptr<HTTPSession> publicHttpSession;
+	mutable RateLimiter rateLimiter;
 
 	explicit P(RESTClient *parent) {
 		this->parent = parent;
+	}
+
+	[[nodiscard]] std::vector<std::string> fetchPublicSpotSymbols() const {
+		try {
+			const auto response = publicHttpSession->get("/spot/", {});
+			const std::string &body = response.body();
+			std::vector<std::string> symbols;
+			const std::regex linkRegex(R"re(href="([A-Z0-9]+)")re");
+			auto it = std::sregex_iterator(body.begin(), body.end(), linkRegex);
+			for (; it != std::sregex_iterator(); ++it) {
+				symbols.push_back((*it)[1].str());
+			}
+			return symbols;
+		} catch (const std::exception &e) {
+			spdlog::warn(fmt::format("Failed to fetch public spot symbols: {}", e.what()));
+			return {};
+		}
 	}
 
 	[[nodiscard]] Instruments getInstruments() const {
@@ -238,6 +258,7 @@ public:
 RESTClient::RESTClient(const std::string &apiKey, const std::string &apiSecret) : m_p(
 	std::make_unique<P>(this)) {
 	m_p->httpSession = std::make_shared<HTTPSession>(apiKey, apiSecret);
+	m_p->publicHttpSession = std::make_shared<HTTPSession>("", "", "public.bybit.com");
 }
 
 RESTClient::~RESTClient() = default;
@@ -261,6 +282,13 @@ RESTClient::getHistoricalPrices(const Category category,
 	while (!candles.empty()) {
 
 		std::ranges::reverse(candles);
+
+		// If the API returned candles starting before 'from', it has no data at or
+		// after 'from' (e.g., the symbol was delisted). Bybit returns the last available
+		// batch instead of an empty list, so we must detect and stop here.
+		if (candles.front().startTime < from) {
+			break;
+		}
 
 		if ((candles.back().startTime - to) < Bybit::numberOfMsForCandleInterval(interval)) {
 			candles.pop_back();
@@ -345,6 +373,36 @@ RESTClient::getInstrumentsInfo(const Category category, const std::string &symbo
                                const std::string &status) const {
 	// Status-filtered requests always fetch fresh and do not touch the cache
 	if (!status.empty()) {
+		if (category == Category::spot) {
+			// For spot: derive delisted symbols as the diff between public.bybit.com and active instruments
+			if (m_p->getInstruments().instruments.empty()) {
+				Instruments instr;
+				std::vector<Instrument> temp;
+				do {
+					instr = m_p->getInstrumentsInfo(category, symbol, instr.nextPageCursor);
+					for (const auto &i: instr.instruments) temp.push_back(i);
+				} while (!instr.nextPageCursor.empty());
+				m_p->setInstruments(temp);
+			}
+
+			std::set<std::string> activeSymbolSet;
+			for (const auto &instr: m_p->getInstruments().instruments) {
+				activeSymbolSet.insert(instr.symbol);
+			}
+
+			std::vector<Instrument> delisted;
+			for (const auto &sym: m_p->fetchPublicSpotSymbols()) {
+				if (sym.ends_with("USDT") && !activeSymbolSet.contains(sym)) {
+					Instrument delistedInstr;
+					delistedInstr.symbol = sym;
+					delistedInstr.quoteCoin = "USDT";
+					delistedInstr.contractStatus = ContractStatus::Closed;
+					delisted.push_back(delistedInstr);
+				}
+			}
+			return delisted;
+		}
+
 		Instruments instr;
 		std::vector<Instrument> temp;
 

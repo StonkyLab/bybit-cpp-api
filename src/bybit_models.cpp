@@ -250,6 +250,10 @@ void Instrument::fromJson(const nlohmann::json& json) {
     readValue<std::string>(json, "symbol", symbol);
     readMagicEnum<ContractType>(json, "contractType", contractType);
     readMagicEnum<ContractStatus>(json, "contractStatus", contractStatus);
+    // Spot instruments use "status" instead of "contractStatus"
+    if (!json.contains("contractStatus") && json.contains("status")) {
+        readMagicEnum<ContractStatus>(json, "status", contractStatus);
+    }
     readValue<std::string>(json, "baseCoin", baseCoin);
     readValue<std::string>(json, "quoteCoin", quoteCoin);
     launchTime = readStringAsInt64(json, "launchTime");

@@ -75,6 +75,7 @@ struct HTTPSession::P {
     }
 
     void authenticateNonPost(http::request<http::string_body>& req) const {
+        if (apiKey.empty()) return;
         std::string path(req.target());
         const std::size_t pos = path.find('?');
         std::string queryString;
@@ -107,8 +108,8 @@ struct HTTPSession::P {
     }
 };
 
-HTTPSession::HTTPSession(const std::string& apiKey, const std::string& apiSecret) : m_p(std::make_unique<P>()) {
-    m_p->uri = API_MAINNET_URI;
+HTTPSession::HTTPSession(const std::string& apiKey, const std::string& apiSecret, const std::string& host) : m_p(std::make_unique<P>()) {
+    m_p->uri = host.empty() ? API_MAINNET_URI : host;
     m_p->apiKey = apiKey;
     m_p->apiSecret = apiSecret;
 }
