@@ -196,6 +196,16 @@ public:
      * @see https://bybit-exchange.github.io/docs/v5/market/tickers
      */
     [[nodiscard]] Tickers getTickers(Category category, const std::string& symbol) const;
+
+    /**
+     * Finds the last available trading day for a delisted spot symbol by inspecting the
+     * public.bybit.com/spot/SYMBOL/ directory listing and returns the end-of-day UTC
+     * timestamp (ms) of the newest CSV file found there.
+     * Returns 0 if the symbol directory cannot be fetched or contains no dated files.
+     * @param symbol e.g. VRAUSDT
+     * @return end-of-day UTC timestamp in milliseconds, or 0 on failure
+     */
+    [[nodiscard]] std::int64_t fetchLastTimestampForDelistedSpotSymbol(const std::string& symbol) const;
 };
 }
 

@@ -15,6 +15,7 @@ endif ()
 
 find_package(Boost 1.88 REQUIRED)
 find_package(OpenSSL REQUIRED)
+find_package(ZLIB REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
 find_package(magic_enum REQUIRED)
@@ -69,4 +70,4 @@ else ()
     target_link_libraries(bybit_benchmark PRIVATE spdlog::spdlog_header_only bybit_api)
 endif ()
 
-target_link_libraries(bybit_api PRIVATE spdlog::spdlog_header_only OpenSSL::Crypto OpenSSL::SSL vk_common nlohmann_json::nlohmann_json)
+target_link_libraries(bybit_api PRIVATE spdlog::spdlog_header_only OpenSSL::Crypto OpenSSL::SSL ZLIB::ZLIB vk_common nlohmann_json::nlohmann_json)

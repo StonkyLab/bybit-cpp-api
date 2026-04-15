@@ -17,6 +17,7 @@ Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@gmail.com>.
 #include <deque>
 #include <regex>
 #include <set>
+#include <zlib.h>
 
 namespace vk::bybit {
 template<typename ValueType>
@@ -124,6 +125,101 @@ public:
 
 	explicit P(RESTClient *parent) {
 		this->parent = parent;
+	}
+
+	// Decompress a gzip-compressed byte string using zlib.
+	static std::string decompressGzip(const std::string &compressed) {
+		z_stream zs{};
+		if (inflateInit2(&zs, 16 + MAX_WBITS) != Z_OK) {
+			throw std::runtime_error("inflateInit2 failed");
+		}
+		zs.next_in = reinterpret_cast<Bytef *>(const_cast<char *>(compressed.data()));
+		zs.avail_in = static_cast<uInt>(compressed.size());
+
+		std::string result;
+		char outbuf[32768];
+		int ret;
+		do {
+			zs.next_out = reinterpret_cast<Bytef *>(outbuf);
+			zs.avail_out = sizeof(outbuf);
+			ret = inflate(&zs, Z_NO_FLUSH);
+			if (ret == Z_STREAM_ERROR || ret == Z_DATA_ERROR || ret == Z_MEM_ERROR) {
+				inflateEnd(&zs);
+				throw std::runtime_error("inflate failed: " + std::to_string(ret));
+			}
+			result.append(outbuf, sizeof(outbuf) - zs.avail_out);
+		} while (ret != Z_STREAM_END);
+		inflateEnd(&zs);
+		return result;
+	}
+
+	// Returns the timestamp (ms) from the last non-empty line of a Bybit trade CSV.
+	// Format: id,timestamp_ms,price,volume,side,flag
+	// The timestamp is the SECOND comma-separated field (index 1).
+	static int64_t lastCsvTimestamp(const std::string &csv) {
+		size_t end = csv.size();
+		while (end > 0 && (csv[end - 1] == '\n' || csv[end - 1] == '\r')) {
+			--end;
+		}
+		if (end == 0) {
+			throw std::runtime_error("CSV data is empty");
+		}
+		const size_t lineStart = csv.rfind('\n', end - 1);
+		const size_t start = (lineStart == std::string::npos) ? 0 : lineStart + 1;
+		const std::string lastLine = csv.substr(start, end - start);
+		// Skip the first field (trade ID) and parse the second field (timestamp ms)
+		const size_t comma1 = lastLine.find(',');
+		if (comma1 == std::string::npos) {
+			throw std::runtime_error("Unexpected CSV format: no comma in last line");
+		}
+		const size_t comma2 = lastLine.find(',', comma1 + 1);
+		const std::string tsStr = lastLine.substr(comma1 + 1,
+			comma2 == std::string::npos ? std::string::npos : comma2 - comma1 - 1);
+		return std::stoll(tsStr);
+	}
+
+	// Fetches the actual last candle timestamp for a delisted spot symbol by downloading and
+	// decompressing the latest daily gz file from public.bybit.com/spot/SYMBOL/.
+	// Returns the timestamp (ms) of the last record, or 0 on failure.
+	[[nodiscard]] int64_t fetchLastTimestampForDelistedSymbol(const std::string &symbol) const {
+		constexpr int maxRetries = 3;
+		for (int attempt = 0; attempt < maxRetries; ++attempt) {
+			try {
+				const auto dirResponse = publicHttpSession->get("/spot/" + symbol + "/", {});
+				const std::string &body = dirResponse.body();
+				// Files are named e.g. VRAUSDT_2026-02-18.csv.gz
+				const std::regex fileRegex(symbol + R"re(_(\d{4}-\d{2}-\d{2})\.csv\.gz)re");
+				std::string latestDate;
+				std::string latestFilename;
+				auto it = std::sregex_iterator(body.begin(), body.end(), fileRegex);
+				for (; it != std::sregex_iterator(); ++it) {
+					const std::string date = (*it)[1].str();
+					if (date > latestDate) {
+						latestDate = date;
+						latestFilename = (*it)[0].str();
+					}
+				}
+				if (latestFilename.empty()) {
+					return 0;
+				}
+				const auto fileResponse = publicHttpSession->get(
+					"/spot/" + symbol + "/" + latestFilename, {});
+				const std::string decompressed = decompressGzip(fileResponse.body());
+				return lastCsvTimestamp(decompressed);
+			} catch (const std::exception &e) {
+				if (attempt < maxRetries - 1) {
+					spdlog::warn(fmt::format(
+						"Failed to fetch last timestamp for delisted symbol {} (attempt {}/{}): {}",
+						symbol, attempt + 1, maxRetries, e.what()));
+					publicHttpSession = std::make_shared<HTTPSession>("", "", "public.bybit.com");
+					std::this_thread::sleep_for(std::chrono::seconds(1 << attempt));
+				} else {
+					spdlog::warn(fmt::format("Failed to fetch last timestamp for delisted symbol {}: {}",
+					                        symbol, e.what()));
+				}
+			}
+		}
+		return 0;
 	}
 
 	[[nodiscard]] std::vector<std::string> fetchPublicSpotSymbols() const {
@@ -295,14 +391,25 @@ RESTClient::getHistoricalPrices(const Category category,
 
 		std::ranges::reverse(candles);
 
-		// If the API returned candles starting before 'from', it has no data at or
-		// after 'from' (e.g., the symbol was delisted). Bybit returns the last available
-		// batch instead of an empty list, so we must detect and stop here.
+		// For delisted spot symbols, Bybit ignores the 'start' parameter and always
+		// returns its fixed last-N-candles window.  When the batch therefore starts
+		// before 'from', we have two cases:
+		//  a) The batch is entirely before 'from' — no new data, stop.
+		//  b) The batch straddles 'from' — discard the stale prefix and continue.
 		if (candles.front().startTime < from) {
-			break;
+			if (candles.back().startTime < from) {
+				break; // Entire batch predates 'from'; no new data available.
+			}
+			// Trim candles that predate 'from'.
+			const auto firstValid = std::lower_bound(candles.begin(), candles.end(), from,
+				[](const Candle &c, std::int64_t ts) { return c.startTime < ts; });
+			candles.erase(candles.begin(), firstValid);
 		}
 
-		if ((candles.back().startTime - to) < Bybit::numberOfMsForCandleInterval(interval)) {
+		// Pop the last candle only if its interval overlaps with 'to' — i.e. it is the
+		// current in-progress candle for active symbols.  For delisted symbols whose
+		// last candle lies far in the past this condition is false, so T_last is kept.
+		if (candles.back().startTime + Bybit::numberOfMsForCandleInterval(interval) > to) {
 			candles.pop_back();
 		}
 
@@ -445,6 +552,10 @@ RESTClient::getInstrumentsInfo(const Category category, const std::string &symbo
 	}
 
 	return m_p->getInstruments().instruments;
+}
+
+std::int64_t RESTClient::fetchLastTimestampForDelistedSpotSymbol(const std::string &symbol) const {
+	return m_p->fetchLastTimestampForDelistedSymbol(symbol);
 }
 
 bool RESTClient::setPositionMode(Category category,
