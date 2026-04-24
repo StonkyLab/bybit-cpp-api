@@ -20,10 +20,10 @@ find_package(nlohmann_json CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
 find_package(magic_enum REQUIRED)
 
-include_directories(include vk_cpp_common/include SYSTEM ${Boost_INCLUDE_DIR} ${OPENSSL_INCLUDE_DIR})
+include_directories(include stonky-cpp-common/include SYSTEM ${Boost_INCLUDE_DIR} ${OPENSSL_INCLUDE_DIR})
 
-if (NOT TARGET vk_common)
-    add_subdirectory(vk_cpp_common)
+if (NOT TARGET stonky_common)
+    add_subdirectory(stonky-cpp-common)
 endif ()
 
 set(HEADERS
@@ -70,4 +70,4 @@ else ()
     target_link_libraries(bybit_benchmark PRIVATE spdlog::spdlog_header_only bybit_api)
 endif ()
 
-target_link_libraries(bybit_api PRIVATE spdlog::spdlog_header_only OpenSSL::Crypto OpenSSL::SSL ZLIB::ZLIB vk_common nlohmann_json::nlohmann_json)
+target_link_libraries(bybit_api PRIVATE spdlog::spdlog_header_only OpenSSL::Crypto OpenSSL::SSL ZLIB::ZLIB stonky_common nlohmann_json::nlohmann_json)
