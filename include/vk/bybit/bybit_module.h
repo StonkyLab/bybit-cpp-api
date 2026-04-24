@@ -3,7 +3,7 @@ Bybit Module Factory
 
 Licensed under the MIT License <http://opensource.org/licenses/MIT>.
 SPDX-License-Identifier: MIT
-Copyright (c) 2026 Vitezslav Kot <vitezslav.kot@gmail.com>.
+Copyright (c) 2026 Vitezslav Kot <vitezslav.kot@stonky.cz>, Stonky s.r.o.
 */
 
 #ifndef BYBIT_API_BYBIT_MODULE_H
