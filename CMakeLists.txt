@@ -27,14 +27,14 @@ if (NOT TARGET vk_common)
 endif ()
 
 set(HEADERS
-        include/vk/bybit/bybit_models.h
-        include/vk/bybit/bybit.h
-        include/vk/bybit/bybit_rest_client.h
-        include/vk/bybit/bybit_http_session.h
-        include/vk/bybit/bybit_ws_client.h
-        include/vk/bybit/bybit_ws_session.h
-        include/vk/bybit/bybit_ws_stream_manager.h
-        include/vk/bybit/bybit_event_models.h)
+        include/stonky/bybit/bybit_models.h
+        include/stonky/bybit/bybit.h
+        include/stonky/bybit/bybit_rest_client.h
+        include/stonky/bybit/bybit_http_session.h
+        include/stonky/bybit/bybit_ws_client.h
+        include/stonky/bybit/bybit_ws_session.h
+        include/stonky/bybit/bybit_ws_stream_manager.h
+        include/stonky/bybit/bybit_event_models.h)
 
 set(SOURCES
         src/bybit.cpp
@@ -48,9 +48,9 @@ set(SOURCES
 
 if (MODULE_MANAGER)
     set(MODULE_HEADERS
-            include/vk/bybit/bybit_futures_exchange_connector.h
-            include/vk/bybit/bybit_spot_exchange_connector.h
-            include/vk/bybit/bybit_module.h)
+            include/stonky/bybit/bybit_futures_exchange_connector.h
+            include/stonky/bybit/bybit_spot_exchange_connector.h
+            include/stonky/bybit/bybit_module.h)
 
     set(MODULE_SOURCES
             src/bybit_futures_exchange_connector.cpp
