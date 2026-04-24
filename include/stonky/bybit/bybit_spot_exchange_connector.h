@@ -6,14 +6,14 @@ SPDX-License-Identifier: MIT
 Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@stonky.cz>, Stonky s.r.o.
 */
 
-#ifndef INCLUDE_VK_BYBIT_SPOT_EXCHANGE_CONNECTOR_H
-#define INCLUDE_VK_BYBIT_SPOT_EXCHANGE_CONNECTOR_H
+#ifndef INCLUDE_STONKY_BYBIT_SPOT_EXCHANGE_CONNECTOR_H
+#define INCLUDE_STONKY_BYBIT_SPOT_EXCHANGE_CONNECTOR_H
 
-#include "vk/interface/i_exchange_connector.h"
-#include "vk/common/module_factory.h"
+#include "stonky/interface/i_exchange_connector.h"
+#include "stonky/common/module_factory.h"
 #include <memory>
 
-namespace vk {
+namespace stonky {
 class BybitSpotExchangeConnector final : public IExchangeConnector {
     struct P;
     std::unique_ptr<P> m_p{};
@@ -56,4 +56,4 @@ public:
     }
 };
 }
-#endif //INCLUDE_VK_BYBIT_SPOT_EXCHANGE_CONNECTOR_H
+#endif //INCLUDE_STONKY_BYBIT_SPOT_EXCHANGE_CONNECTOR_H

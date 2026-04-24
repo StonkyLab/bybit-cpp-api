@@ -6,15 +6,15 @@ SPDX-License-Identifier: MIT
 Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@stonky.cz>, Stonky s.r.o.
 */
 
-#include "vk/bybit/bybit_http_session.h"
-#include "vk/utils/utils.h"
-#include "vk/utils/json_utils.h"
+#include "stonky/bybit/bybit_http_session.h"
+#include "stonky/utils/utils.h"
+#include "stonky/utils/json_utils.h"
 #include "nlohmann/json.hpp"
 #include <boost/asio/ssl.hpp>
 #include <boost/beast/version.hpp>
 #include <openssl/hmac.h>
 
-namespace vk::bybit {
+namespace stonky::bybit {
 namespace ssl = boost::asio::ssl;
 using tcp = net::ip::tcp;
 
@@ -170,4 +170,4 @@ http::response<http::string_body> HTTPSession::P::request(http::request<http::st
 
     return response;
 }
-} // namespace vk::bybit
+} // namespace stonky::bybit

@@ -1,9 +1,9 @@
-#include "vk/bybit/bybit.h"
-#include "vk/bybit/bybit_rest_client.h"
-#include "vk/bybit/bybit_ws_stream_manager.h"
-#include "vk/utils/json_utils.h"
-#include "vk/utils/log_utils.h"
-#include "vk/utils/utils.h"
+#include "stonky/bybit/bybit.h"
+#include "stonky/bybit/bybit_rest_client.h"
+#include "stonky/bybit/bybit_ws_stream_manager.h"
+#include "stonky/utils/json_utils.h"
+#include "stonky/utils/log_utils.h"
+#include "stonky/utils/utils.h"
 #include <memory>
 #include <filesystem>
 #include <iostream>
@@ -13,29 +13,29 @@
 #include <future>
 #include <boost/multiprecision/cpp_dec_float.hpp>
 
-using namespace vk::bybit;
+using namespace stonky::bybit;
 using namespace std::chrono_literals;
 
 constexpr int HISTORY_LENGTH_IN_S = 86400; // 1 day
 
-void logFunction(const vk::LogSeverity severity, const std::string& errmsg) {
+void logFunction(const stonky::LogSeverity severity, const std::string& errmsg) {
     switch (severity) {
-    case vk::LogSeverity::Info:
+    case stonky::LogSeverity::Info:
         spdlog::info(errmsg);
         break;
-    case vk::LogSeverity::Warning:
+    case stonky::LogSeverity::Warning:
         spdlog::warn(errmsg);
         break;
-    case vk::LogSeverity::Critical:
+    case stonky::LogSeverity::Critical:
         spdlog::critical(errmsg);
         break;
-    case vk::LogSeverity::Error:
+    case stonky::LogSeverity::Error:
         spdlog::error(errmsg);
         break;
-    case vk::LogSeverity::Debug:
+    case stonky::LogSeverity::Debug:
         spdlog::debug(errmsg);
         break;
-    case vk::LogSeverity::Trace:
+    case stonky::LogSeverity::Trace:
         spdlog::trace(errmsg);
         break;
     }
@@ -55,8 +55,8 @@ std::pair<std::string, std::string> readCredentials() {
         std::string apiSecret;
 
         nlohmann::json json = nlohmann::json::parse(ifs);
-        vk::readValue<std::string>(json, "ApiKey", apiKey);
-        vk::readValue<std::string>(json, "ApiSecret", apiSecret);
+        stonky::readValue<std::string>(json, "ApiKey", apiKey);
+        stonky::readValue<std::string>(json, "ApiSecret", apiSecret);
 
         std::pair retVal(apiKey, apiSecret);
         return retVal;
@@ -97,14 +97,14 @@ void testHistory() {
         if (const auto candles = restClient->getHistoricalPrices(Category::linear, "BTCUSDT", CandleInterval::_1,
                                                                  from * 1000, to * 1000); checkCandles(
             candles, CandleInterval::_1)) {
-            logFunction(vk::LogSeverity::Info, "Candles OK");
+            logFunction(stonky::LogSeverity::Info, "Candles OK");
         }
         else {
-            logFunction(vk::LogSeverity::Error, "Candles Not OK");
+            logFunction(stonky::LogSeverity::Error, "Candles Not OK");
         }
     }
     catch (std::exception& e) {
-        logFunction(vk::LogSeverity::Critical, e.what());
+        logFunction(stonky::LogSeverity::Critical, e.what());
     }
 }
 
@@ -127,7 +127,7 @@ void measureRestResponses() {
             auto t2 = high_resolution_clock::now();
 
             duration<double, std::milli> ms_double = t2 - t1;
-            logFunction(vk::LogSeverity::Info,
+            logFunction(stonky::LogSeverity::Info,
                         fmt::format("Get Wallet Balance request time: {} ms", ms_double.count()));
             overallTime += ms_double.count();
 
@@ -136,7 +136,7 @@ void measureRestResponses() {
             t2 = high_resolution_clock::now();
 
             ms_double = t2 - t1;
-            logFunction(vk::LogSeverity::Info, fmt::format("Get symbols request time: {} ms", ms_double.count()));
+            logFunction(stonky::LogSeverity::Info, fmt::format("Get symbols request time: {} ms", ms_double.count()));
             overallTime += ms_double.count();
 
             t1 = high_resolution_clock::now();
@@ -144,16 +144,16 @@ void measureRestResponses() {
             t2 = high_resolution_clock::now();
 
             ms_double = t2 - t1;
-            logFunction(vk::LogSeverity::Info,
+            logFunction(stonky::LogSeverity::Info,
                         fmt::format("Get position info request time: {} ms\n", ms_double.count()));
             overallTime += ms_double.count();
             numPass++;
 
             double timePerResponse = overallTime / (numPass * 3);
-            logFunction(vk::LogSeverity::Info, fmt::format("Average time per response: {} ms\n", timePerResponse));
+            logFunction(stonky::LogSeverity::Info, fmt::format("Average time per response: {} ms\n", timePerResponse));
         }
         catch (std::exception& e) {
-            logFunction(vk::LogSeverity::Warning, fmt::format("Exception: {}", e.what()));
+            logFunction(stonky::LogSeverity::Warning, fmt::format("Exception: {}", e.what()));
         }
 
         std::this_thread::sleep_for(2s);
@@ -183,7 +183,7 @@ void positions() {
     try {
         for (const auto& position : restClient->getPositionInfo(Category::linear, "BTCUSDT")) {
             if (position.size != 0) {
-                const auto ts = vk::getMsTimestamp(vk::currentTime()).count();
+                const auto ts = stonky::getMsTimestamp(stonky::currentTime()).count();
                 Order order;
                 order.symbol = position.symbol;
 
@@ -200,12 +200,12 @@ void positions() {
                 order.orderLinkId = std::to_string(ts);
                 order.positionIdx = position.positionIdx;
                 const auto id = restClient->placeOrder(order);
-                logFunction(vk::LogSeverity::Info, fmt::format("Order placed, id: {}", id.orderId));
+                logFunction(stonky::LogSeverity::Info, fmt::format("Order placed, id: {}", id.orderId));
             }
         }
     }
     catch (std::exception& e) {
-        logFunction(vk::LogSeverity::Warning, fmt::format("Exception: {}", e.what()));
+        logFunction(stonky::LogSeverity::Warning, fmt::format("Exception: {}", e.what()));
     }
 }
 
@@ -214,7 +214,7 @@ void testOrders() {
     auto restClient = std::make_shared<RESTClient>(fst, snd);
 
     try {
-        const auto ts = vk::getMsTimestamp(vk::currentTime()).count();
+        const auto ts = stonky::getMsTimestamp(stonky::currentTime()).count();
 
         double lotAmount = 0.1;
         constexpr int amount = -25;
@@ -228,10 +228,10 @@ void testOrders() {
         order.orderLinkId = std::to_string(ts);
 
         auto orderResponse = restClient->placeOrder(order);
-        logFunction(vk::LogSeverity::Info, fmt::format("Order Id: {}", orderResponse.orderId));
+        logFunction(stonky::LogSeverity::Info, fmt::format("Order Id: {}", orderResponse.orderId));
     }
     catch (std::exception& e) {
-        logFunction(vk::LogSeverity::Warning, fmt::format("Exception: {}", e.what()));
+        logFunction(stonky::LogSeverity::Warning, fmt::format("Exception: {}", e.what()));
     }
 }
 
@@ -239,10 +239,10 @@ void setPositionMode() {
     const auto [fst, snd] = readCredentials();
 
     if (const auto restClient = std::make_shared<RESTClient>(fst, snd); restClient->setPositionMode(Category::linear, "", "USDT", PositionMode::MergedSingle)) {
-        logFunction(vk::LogSeverity::Info, "Position mode set successfully");
+        logFunction(stonky::LogSeverity::Info, "Position mode set successfully");
     }
     else {
-        logFunction(vk::LogSeverity::Info, "Failed to set position mode");
+        logFunction(stonky::LogSeverity::Info, "Failed to set position mode");
     }
 }
 
@@ -282,10 +282,10 @@ void testTickers() {
     try {
         const auto tme = restClient->getServerTime();
         auto response = restClient->getTickers(Category::linear, "BTCUSDT");
-        logFunction(vk::LogSeverity::Info, fmt::format("Ticker: {}, fr: {}", response.tickers[0].symbol, response.tickers[0].fundingRate));
+        logFunction(stonky::LogSeverity::Info, fmt::format("Ticker: {}, fr: {}", response.tickers[0].symbol, response.tickers[0].fundingRate));
     }
     catch (std::exception& e) {
-        logFunction(vk::LogSeverity::Warning, fmt::format("Exception: {}", e.what()));
+        logFunction(stonky::LogSeverity::Warning, fmt::format("Exception: {}", e.what()));
     }
 }
 

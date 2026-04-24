@@ -6,9 +6,9 @@ SPDX-License-Identifier: MIT
 Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@stonky.cz>, Stonky s.r.o.
 */
 
-#include "vk/bybit/bybit.h"
+#include "stonky/bybit/bybit.h"
 
-namespace vk::bybit {
+namespace stonky::bybit {
 int64_t Bybit::numberOfMsForCandleInterval(const CandleInterval candleInterval) {
     switch (candleInterval) {
         case CandleInterval::_1:
@@ -87,4 +87,4 @@ bool Bybit::isValidCandleResolution(const std::int32_t resolution, CandleInterva
             return false;
     }
 }
-} // namespace vk::bybit
+} // namespace stonky::bybit

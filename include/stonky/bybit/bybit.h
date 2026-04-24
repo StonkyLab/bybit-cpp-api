@@ -6,12 +6,12 @@ SPDX-License-Identifier: MIT
 Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@stonky.cz>, Stonky s.r.o.
 */
 
-#ifndef INCLUDE_VK_BYBIT_API_H
-#define INCLUDE_VK_BYBIT_API_H
+#ifndef INCLUDE_STONKY_BYBIT_API_H
+#define INCLUDE_STONKY_BYBIT_API_H
 
-#include "vk/bybit/bybit_models.h"
+#include "stonky/bybit/bybit_models.h"
 
-namespace vk::bybit {
+namespace stonky::bybit {
 class Bybit {
 public:
     /**
@@ -29,5 +29,5 @@ public:
      */
     static int64_t numberOfMsForCandleInterval(CandleInterval candleInterval);
 };
-} // namespace vk::bybit
-#endif // INCLUDE_VK_BYBIT_API_H
+} // namespace stonky::bybit
+#endif // INCLUDE_STONKY_BYBIT_API_H

@@ -6,12 +6,12 @@ SPDX-License-Identifier: MIT
 Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@stonky.cz>, Stonky s.r.o.
 */
 
-#include "vk/bybit/bybit_models.h"
-#include "vk/utils/utils.h"
-#include "vk/utils/json_utils.h"
+#include "stonky/bybit/bybit_models.h"
+#include "stonky/utils/utils.h"
+#include "stonky/utils/json_utils.h"
 #include <boost/multiprecision/cpp_dec_float.hpp>
 
-namespace vk::bybit {
+namespace stonky::bybit {
 bool
 readDecimalValue(const nlohmann::json& json, const std::string& key, boost::multiprecision::cpp_dec_float_50& value,
                  boost::multiprecision::cpp_dec_float_50 defaultVal = boost::multiprecision::cpp_dec_float_50("0")) {

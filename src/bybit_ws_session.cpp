@@ -6,9 +6,9 @@ SPDX-License-Identifier: MIT
 Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@stonky.cz>, Stonky s.r.o.
 */
 
-#include "vk/bybit/bybit_ws_session.h"
-#include "vk/utils/log_utils.h"
-#include "vk/utils/json_utils.h"
+#include "stonky/bybit/bybit_ws_session.h"
+#include "stonky/utils/log_utils.h"
+#include "stonky/utils/json_utils.h"
 #include <nlohmann/json.hpp>
 #include <boost/asio/buffers_iterator.hpp>
 #include <boost/asio/strand.hpp>
@@ -18,7 +18,7 @@ Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@stonky.cz>, Stonky s.r.o.
 #include <boost/beast/websocket.hpp>
 #include <list>
 
-namespace vk::bybit {
+namespace stonky::bybit {
 static constexpr int PING_INTERVAL_IN_S = 20;
 
 struct WebSocketSession::P {
@@ -323,4 +323,4 @@ void WebSocketSession::run(const std::string &host, const std::string &port, con
 }
 
 void WebSocketSession::close() const { m_p->closeWs(); }
-} // namespace vk::bybit
+} // namespace stonky::bybit

@@ -1,32 +1,32 @@
-#include "vk/bybit/bybit_rest_client.h"
-#include "vk/bybit/bybit.h"
+#include "stonky/bybit/bybit_rest_client.h"
+#include "stonky/bybit/bybit.h"
 #include <iostream>
 #include <spdlog/spdlog.h>
 #include <fstream>
-#include "vk/utils/json_utils.h"
-#include "vk/utils/log_utils.h"
+#include "stonky/utils/json_utils.h"
+#include "stonky/utils/log_utils.h"
 
-using namespace vk::bybit;
+using namespace stonky::bybit;
 using namespace std::chrono_literals;
 
-void logFunction(const vk::LogSeverity severity, const std::string& errmsg) {
+void logFunction(const stonky::LogSeverity severity, const std::string& errmsg) {
     switch (severity) {
-    case vk::LogSeverity::Info:
+    case stonky::LogSeverity::Info:
         spdlog::info(errmsg);
         break;
-    case vk::LogSeverity::Warning:
+    case stonky::LogSeverity::Warning:
         spdlog::warn(errmsg);
         break;
-    case vk::LogSeverity::Critical:
+    case stonky::LogSeverity::Critical:
         spdlog::critical(errmsg);
         break;
-    case vk::LogSeverity::Error:
+    case stonky::LogSeverity::Error:
         spdlog::error(errmsg);
         break;
-    case vk::LogSeverity::Debug:
+    case stonky::LogSeverity::Debug:
         spdlog::debug(errmsg);
         break;
-    case vk::LogSeverity::Trace:
+    case stonky::LogSeverity::Trace:
         spdlog::trace(errmsg);
         break;
     }
@@ -45,8 +45,8 @@ std::pair<std::string, std::string> readCredentials(const char* path) {
         std::string apiSecret;
 
         nlohmann::json json = nlohmann::json::parse(ifs);
-        vk::readValue<std::string>(json, "ApiKey", apiKey);
-        vk::readValue<std::string>(json, "ApiSecret", apiSecret);
+        stonky::readValue<std::string>(json, "ApiKey", apiKey);
+        stonky::readValue<std::string>(json, "ApiSecret", apiSecret);
 
         std::pair retVal(apiKey, apiSecret);
         return retVal;
@@ -77,7 +77,7 @@ void measureRestResponses(const std::pair<std::string, std::string>& credentials
             auto t2 = high_resolution_clock::now();
 
             duration<double, std::milli> ms_double = t2 - t1;
-            logFunction(vk::LogSeverity::Info,
+            logFunction(stonky::LogSeverity::Info,
                         fmt::format("Get Wallet Balance request time: {} ms", ms_double.count()));
             overallTime += ms_double.count();
 
@@ -86,7 +86,7 @@ void measureRestResponses(const std::pair<std::string, std::string>& credentials
             t2 = high_resolution_clock::now();
 
             ms_double = t2 - t1;
-            logFunction(vk::LogSeverity::Info, fmt::format("Get symbols request time: {} ms", ms_double.count()));
+            logFunction(stonky::LogSeverity::Info, fmt::format("Get symbols request time: {} ms", ms_double.count()));
             overallTime += ms_double.count();
 
             t1 = high_resolution_clock::now();
@@ -94,16 +94,16 @@ void measureRestResponses(const std::pair<std::string, std::string>& credentials
             t2 = high_resolution_clock::now();
 
             ms_double = t2 - t1;
-            logFunction(vk::LogSeverity::Info,
+            logFunction(stonky::LogSeverity::Info,
                         fmt::format("Get position info request time: {} ms\n", ms_double.count()));
             overallTime += ms_double.count();
             numPass++;
 
             double timePerResponse = overallTime / (numPass * 3);
-            logFunction(vk::LogSeverity::Info, fmt::format("Average time per response: {} ms\n", timePerResponse));
+            logFunction(stonky::LogSeverity::Info, fmt::format("Average time per response: {} ms\n", timePerResponse));
         }
         catch (std::exception& e) {
-            logFunction(vk::LogSeverity::Warning, fmt::format("Exception: {}", e.what()));
+            logFunction(stonky::LogSeverity::Warning, fmt::format("Exception: {}", e.what()));
         }
 
         std::this_thread::sleep_for(2s);

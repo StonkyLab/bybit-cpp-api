@@ -7,9 +7,9 @@ Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@stonky.cz>, Stonky s.r.o.
 */
 
 #include <vk/bybit/bybit_spot_exchange_connector.h>
-#include "vk/bybit/bybit_rest_client.h"
+#include "stonky/bybit/bybit_rest_client.h"
 
-namespace vk {
+namespace stonky {
 struct BybitSpotExchangeConnector::P {
     std::unique_ptr<bybit::RESTClient> restClient{};
 };
@@ -99,4 +99,4 @@ std::vector<Candle> BybitSpotExchangeConnector::getHistoricalCandles(const std::
     throw std::runtime_error("Unimplemented: BybitSpotExchangeConnector::getHistoricalCandles");
 }
 
-} // namespace vk
+} // namespace stonky

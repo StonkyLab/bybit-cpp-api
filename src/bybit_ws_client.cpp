@@ -6,13 +6,13 @@ SPDX-License-Identifier: MIT
 Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@stonky.cz>, Stonky s.r.o.
 */
 
-#include "vk/bybit/bybit_ws_client.h"
+#include "stonky/bybit/bybit_ws_client.h"
 #include <boost/beast/core.hpp>
 #include <thread>
 
 using namespace std::chrono_literals;
 
-namespace vk::bybit {
+namespace stonky::bybit {
 #define STRINGIZE_I(x) #x
 #define STRINGIZE(x) STRINGIZE_I(x)
 

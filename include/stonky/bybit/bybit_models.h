@@ -6,14 +6,14 @@ SPDX-License-Identifier: MIT
 Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@stonky.cz>, Stonky s.r.o.
 */
 
-#ifndef INCLUDE_VK_BYBIT_MODELS_H
-#define INCLUDE_VK_BYBIT_MODELS_H
+#ifndef INCLUDE_STONKY_BYBIT_MODELS_H
+#define INCLUDE_STONKY_BYBIT_MODELS_H
 
-#include "vk/bybit/bybit_enums.h"
-#include "vk/interface/i_json.h"
+#include "stonky/bybit/bybit_enums.h"
+#include "stonky/interface/i_json.h"
 #include <nlohmann/json.hpp>
 
-namespace vk::bybit {
+namespace stonky::bybit {
 struct Response : IJson {
     int retCode{};
     std::string retMsg{};
@@ -352,4 +352,4 @@ struct Tickers final : Response {
 };
 }
 
-#endif //INCLUDE_VK_BYBIT_MODELS_H
+#endif //INCLUDE_STONKY_BYBIT_MODELS_H

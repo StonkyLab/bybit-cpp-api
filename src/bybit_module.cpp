@@ -6,4 +6,4 @@ SPDX-License-Identifier: MIT
 Copyright (c) 2026 Vitezslav Kot <vitezslav.kot@stonky.cz>, Stonky s.r.o.
 */
 
-#include "vk/bybit/bybit_module.h"
+#include "stonky/bybit/bybit_module.h"

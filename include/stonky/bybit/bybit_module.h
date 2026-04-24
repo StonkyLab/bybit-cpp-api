@@ -11,11 +11,11 @@ Copyright (c) 2026 Vitezslav Kot <vitezslav.kot@stonky.cz>, Stonky s.r.o.
 
 #include "bybit_futures_exchange_connector.h"
 #include "bybit_spot_exchange_connector.h"
-#include "vk/common/module_factory.h"
-#include "vk/interface/i_module_factory.h"
-#include "vk/utils//magic_enum_wrapper.hpp"
+#include "stonky/common/module_factory.h"
+#include "stonky/interface/i_module_factory.h"
+#include "stonky/utils//magic_enum_wrapper.hpp"
 
-namespace vk {
+namespace stonky {
 BOOST_SYMBOL_EXPORT IModuleFactory *getModuleFactory() {
     if (!g_moduleFactory) {
         FactoryInfo factoryInfo;
@@ -31,5 +31,5 @@ BOOST_SYMBOL_EXPORT IModuleFactory *getModuleFactory() {
 
     return g_moduleFactory;
 }
-} // namespace vk
+} // namespace stonky
 #endif // BYBIT_API_BYBIT_MODULE_H

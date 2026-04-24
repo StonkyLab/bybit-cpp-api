@@ -6,15 +6,15 @@ SPDX-License-Identifier: MIT
 Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@stonky.cz>, Stonky s.r.o.
 */
 
-#ifndef INCLUDE_VK_BYBIT_FUTURES_REST_CLIENT_H
-#define INCLUDE_VK_BYBIT_FUTURES_REST_CLIENT_H
+#ifndef INCLUDE_STONKY_BYBIT_FUTURES_REST_CLIENT_H
+#define INCLUDE_STONKY_BYBIT_FUTURES_REST_CLIENT_H
 
-#include "vk/bybit/bybit_models.h"
+#include "stonky/bybit/bybit_models.h"
 #include <string>
 #include <memory>
 #include <optional>
 
-namespace vk::bybit {
+namespace stonky::bybit {
 
 using onCandlesDownloaded = std::function<void(const std::vector<Candle>&)>;
 
@@ -209,4 +209,4 @@ public:
 };
 }
 
-#endif //INCLUDE_VK_BYBIT_FUTURES_REST_CLIENT_H
+#endif //INCLUDE_STONKY_BYBIT_FUTURES_REST_CLIENT_H

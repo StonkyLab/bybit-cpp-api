@@ -6,10 +6,10 @@ SPDX-License-Identifier: MIT
 Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@stonky.cz>, Stonky s.r.o.
 */
 
-#include "vk/bybit/bybit_rest_client.h"
-#include "vk/bybit/bybit_http_session.h"
-#include "vk/bybit/bybit.h"
-#include "vk/utils/utils.h"
+#include "stonky/bybit/bybit_rest_client.h"
+#include "stonky/bybit/bybit_http_session.h"
+#include "stonky/bybit/bybit.h"
+#include "stonky/utils/utils.h"
 #include <mutex>
 #include <thread>
 #include <chrono>
@@ -19,7 +19,7 @@ Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@stonky.cz>, Stonky s.r.o.
 #include <set>
 #include <zlib.h>
 
-namespace vk::bybit {
+namespace stonky::bybit {
 template<typename ValueType>
 ValueType handleBybitResponse(const http::response<http::string_body> &response) {
 	ValueType retVal;

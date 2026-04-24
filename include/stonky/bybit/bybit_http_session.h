@@ -6,8 +6,8 @@ SPDX-License-Identifier: MIT
 Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@stonky.cz>, Stonky s.r.o.
 */
 
-#ifndef INCLUDE_VK_BYBIT_HTTP_SESSION_H
-#define INCLUDE_VK_BYBIT_HTTP_SESSION_H
+#ifndef INCLUDE_STONKY_BYBIT_HTTP_SESSION_H
+#define INCLUDE_STONKY_BYBIT_HTTP_SESSION_H
 
 #include <boost/asio/connect.hpp>
 #include <boost/beast/core.hpp>
@@ -16,7 +16,7 @@ Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@stonky.cz>, Stonky s.r.o.
 #include <map>
 #include <nlohmann/json_fwd.hpp>
 
-namespace vk::bybit {
+namespace stonky::bybit {
 namespace beast = boost::beast;
 namespace http = beast::http;
 namespace net = boost::asio;
@@ -34,5 +34,5 @@ public:
 
     [[nodiscard]] http::response<http::string_body> post(const std::string& path, const nlohmann::json& json) const;
 };
-} // namespace vk::bybit
-#endif // INCLUDE_VK_BYBIT_HTTP_SESSION_H
+} // namespace stonky::bybit
+#endif // INCLUDE_STONKY_BYBIT_HTTP_SESSION_H

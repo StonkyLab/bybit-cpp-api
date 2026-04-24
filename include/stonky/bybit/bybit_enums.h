@@ -6,12 +6,12 @@ SPDX-License-Identifier: MIT
 Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@stonky.cz>, Stonky s.r.o.
 */
 
-#ifndef INCLUDE_VK_BYBIT_ENUMS_H
-#define INCLUDE_VK_BYBIT_ENUMS_H
+#ifndef INCLUDE_STONKY_BYBIT_ENUMS_H
+#define INCLUDE_STONKY_BYBIT_ENUMS_H
 
-#include "vk/utils/magic_enum_wrapper.hpp"
+#include "stonky/utils/magic_enum_wrapper.hpp"
 
-namespace vk::bybit {
+namespace stonky::bybit {
 enum class CandleInterval : std::int32_t {
     _1,
     _3,
@@ -120,38 +120,38 @@ enum class ResponseType :std::int32_t {
 }
 
 template <>
-constexpr magic_enum::customize::customize_t magic_enum::customize::enum_name<vk::bybit::CandleInterval>(
-    const vk::bybit::CandleInterval value) noexcept {
+constexpr magic_enum::customize::customize_t magic_enum::customize::enum_name<stonky::bybit::CandleInterval>(
+    const stonky::bybit::CandleInterval value) noexcept {
     switch (value) {
-    case vk::bybit::CandleInterval::_1:
+    case stonky::bybit::CandleInterval::_1:
         return "1";
-    case vk::bybit::CandleInterval::_3:
+    case stonky::bybit::CandleInterval::_3:
         return "3";
-    case vk::bybit::CandleInterval::_5:
+    case stonky::bybit::CandleInterval::_5:
         return "5";
-    case vk::bybit::CandleInterval::_15:
+    case stonky::bybit::CandleInterval::_15:
         return "15";
-    case vk::bybit::CandleInterval::_30:
+    case stonky::bybit::CandleInterval::_30:
         return "30";
-    case vk::bybit::CandleInterval::_60:
+    case stonky::bybit::CandleInterval::_60:
         return "60";
-    case vk::bybit::CandleInterval::_120:
+    case stonky::bybit::CandleInterval::_120:
         return "120";
-    case vk::bybit::CandleInterval::_240:
+    case stonky::bybit::CandleInterval::_240:
         return "240";
-    case vk::bybit::CandleInterval::_360:
+    case stonky::bybit::CandleInterval::_360:
         return "360";
-    case vk::bybit::CandleInterval::_720:
+    case stonky::bybit::CandleInterval::_720:
         return "720";
-    case vk::bybit::CandleInterval::_D:
+    case stonky::bybit::CandleInterval::_D:
         return "D";
-    case vk::bybit::CandleInterval::_M:
+    case stonky::bybit::CandleInterval::_M:
         return "M";
-    case vk::bybit::CandleInterval::_W:
+    case stonky::bybit::CandleInterval::_W:
         return "W";
     }
 
     return default_tag;
 }
 
-#endif //INCLUDE_VK_BYBIT_ENUMS_H
+#endif //INCLUDE_STONKY_BYBIT_ENUMS_H

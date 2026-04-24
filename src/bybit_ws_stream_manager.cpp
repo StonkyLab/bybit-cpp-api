@@ -6,16 +6,16 @@ SPDX-License-Identifier: MIT
 Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@stonky.cz>, Stonky s.r.o.
 */
 
-#include "vk/bybit/bybit_rest_client.h"
-#include "vk/bybit/bybit_ws_stream_manager.h"
-#include "vk/bybit/bybit_ws_client.h"
-#include "vk/utils/utils.h"
+#include "stonky/bybit/bybit_rest_client.h"
+#include "stonky/bybit/bybit_ws_stream_manager.h"
+#include "stonky/bybit/bybit_ws_client.h"
+#include "stonky/utils/utils.h"
 #include <mutex>
 #include <thread>
 
 using namespace std::chrono_literals;
 
-namespace vk::bybit {
+namespace stonky::bybit {
 struct WSStreamManager::P {
     std::unique_ptr<WebSocketClient> wsClient;
     int timeout{5};
@@ -182,4 +182,4 @@ std::optional<EventCandlestick> WSStreamManager::readEventCandlestick(const std:
 
     return {};
 }
-} // namespace vk::bybit
+} // namespace stonky::bybit
