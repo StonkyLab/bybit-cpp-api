@@ -6,7 +6,7 @@ SPDX-License-Identifier: MIT
 Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@stonky.cz>, Stonky s.r.o.
 */
 
-#include <vk/bybit/bybit_spot_exchange_connector.h>
+#include <stonky/bybit/bybit_spot_exchange_connector.h>
 #include "stonky/bybit/bybit_rest_client.h"
 
 namespace stonky {
