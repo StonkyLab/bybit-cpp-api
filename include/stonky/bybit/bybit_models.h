@@ -195,6 +195,12 @@ struct Instrument final : IJson {
     ContractStatus contractStatus{ContractStatus::Trading};
     std::string baseCoin{};
     std::string quoteCoin{};
+    // Discriminates crypto perps from TradFi-style derivatives on the same
+    // LinearPerpetual contractType. Bybit values: "" (standard crypto),
+    // "innovation" (Innovation Zone — still crypto), "stock" (equities /
+    // indices / leveraged-ETFs, e.g. GOOGL, NVDA, also Brent Oil BZ),
+    // "commodity". Only "" and "innovation" should be treated as crypto.
+    std::string symbolType{};
     std::int64_t launchTime{};
     std::int64_t deliveryTime{};
     double deliveryFeeRate{};

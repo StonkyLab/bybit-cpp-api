@@ -256,6 +256,7 @@ void Instrument::fromJson(const nlohmann::json& json) {
     }
     readValue<std::string>(json, "baseCoin", baseCoin);
     readValue<std::string>(json, "quoteCoin", quoteCoin);
+    readValue<std::string>(json, "symbolType", symbolType);
     launchTime = readStringAsInt64(json, "launchTime");
     deliveryTime = readStringAsInt64(json, "deliveryTime");
     deliveryFeeRate = readStringAsDouble(json, "deliveryFeeRate", deliveryFeeRate);
