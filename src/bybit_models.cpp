@@ -240,6 +240,7 @@ void LotSizeFilter::fromJson(const nlohmann::json& json) {
     minOrderQty = readStringAsDouble(json, "minOrderQty", minOrderQty);
     qtyStep = readStringAsDouble(json, "qtyStep", qtyStep);
     postOnlyMaxTradingQty = readStringAsDouble(json, "postOnlyMaxTradingQty", postOnlyMaxTradingQty);
+    minNotionalValue = readStringAsDouble(json, "minNotionalValue", minNotionalValue);
 }
 
 nlohmann::json Instrument::toJson() const {
@@ -293,11 +294,14 @@ void Instruments::fromJson(const nlohmann::json& json) {
 nlohmann::json Order::toJson() const {
     nlohmann::json json;
 
-    json["category"] = category;
-    json["side"] = side;
+    /// Bybit V5 expects enums and all numeric values as STRINGS; a raw enum
+    /// assignment would serialize the underlying integer and draw
+    /// "10001 Request parameter error".
+    json["category"] = magic_enum::enum_name(category);
+    json["side"] = magic_enum::enum_name(side);
     json["symbol"] = symbol;
-    json["orderType"] = orderType;
-    json["timeInForce"] = timeInForce;
+    json["orderType"] = magic_enum::enum_name(orderType);
+    json["timeInForce"] = magic_enum::enum_name(timeInForce);
     json["reduceOnly"] = reduceOnly;
     json["closeOnTrigger"] = closeOnTrigger;
     json["positionIdx"] = positionIdx;
@@ -306,52 +310,37 @@ nlohmann::json Order::toJson() const {
         json["orderLinkId"] = orderLinkId;
     }
 
+    /// Number of decimals derived from the instrument steps
+    const auto precisionFromStep = [](const double step) {
+        const boost::multiprecision::cpp_dec_float_50 stepDec(std::to_string(step));
+        const auto parts = splitString(stepDec.str(), '.');
+        return parts.size() == 2 ? static_cast<int>(parts[1].length()) : 0;
+    };
+
+    const auto pricePrecision = precisionFromStep(priceStep);
+
+    json["qty"] = formatDouble(precisionFromStep(qtyStep), qty);
+
+    if (orderType == OrderType::Limit) {
+        json["price"] = formatDouble(pricePrecision, price);
+    }
+
     if (takeProfit != 0.0) {
-        json["takeProfit"] = takeProfit;
+        json["takeProfit"] = formatDouble(pricePrecision, takeProfit);
     }
 
     if (stopLoss != 0.0) {
-        json["stopLoss"] = stopLoss;
-    }
-
-    if (orderType == OrderType::Limit) {
-        json["price"] = std::to_string(price);
+        json["stopLoss"] = formatDouble(pricePrecision, stopLoss);
     }
 
     if (tpTriggerBy == TriggerPriceType::LastPrice) {
-        json["tpTriggerBy"] = tpTriggerBy;
+        json["tpTriggerBy"] = magic_enum::enum_name(tpTriggerBy);
     }
 
     if (slTriggerBy == TriggerPriceType::LastPrice) {
-        json["slTriggerBy"] = slTriggerBy;
+        json["slTriggerBy"] = magic_enum::enum_name(slTriggerBy);
     }
 
-    /// Fix number of decimal in qty attribute
-    {
-        const boost::multiprecision::cpp_dec_float_50 precision_dec(std::to_string(qtyStep));
-        const auto parts = splitString(precision_dec.str(), '.');
-        int precision = 0;
-
-        if (parts.size() == 2) {
-            precision = parts[1].length();
-        }
-
-        json["qty"] = formatDouble(precision, qty);
-    }
-
-    /// Fix number of decimal in price attribute
-    {
-        const boost::multiprecision::cpp_dec_float_50 precision_dec(std::to_string(priceStep));
-        const auto parts = splitString(precision_dec.str(), '.');
-        int precision = 0;
-
-        if (parts.size() == 2) {
-            precision = parts[1].length();
-        }
-        if (orderType == OrderType::Limit) {
-            json["price"] = formatDouble(precision, price);
-        }
-    }
     return json;
 }
 

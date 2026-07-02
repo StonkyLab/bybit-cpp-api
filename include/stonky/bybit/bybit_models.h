@@ -183,6 +183,7 @@ struct LotSizeFilter final : IJson {
     double minOrderQty{};
     double qtyStep{};
     double postOnlyMaxTradingQty{};
+    double minNotionalValue{}; /// venue min order value in quote currency (e.g. 5 USDT on linear perps)
 
     [[nodiscard]] nlohmann::json toJson() const override;
 

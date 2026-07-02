@@ -14,6 +14,8 @@ Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@stonky.cz>, Stonky s.r.o.
 #include <optional>
 
 namespace stonky::bybit {
+using onTickerUpdate = std::function<void(const EventTicker&)>;
+
 class WSStreamManager {
     struct P;
     std::unique_ptr<P> m_p{};
@@ -29,6 +31,21 @@ public:
      * @param pair e.g BTCUSDT
      */
     void subscribeTickerStream(const std::string& pair) const;
+
+    /**
+     * Unsubscribe the Ticker Stream of a pair and drop its cached last value.
+     * No-op when not subscribed.
+     * @param pair e.g BTCUSDT
+     */
+    void unsubscribeTickerStream(const std::string& pair) const;
+
+    /**
+     * Set a callback invoked on EVERY ticker update (snapshot or delta), with
+     * the merged EventTicker. Invoked on the WebSocket io thread — must be
+     * fast and non-blocking. Set before subscribing.
+     * @param onTickerUpdateCB
+     */
+    void setTickerUpdateCallback(const onTickerUpdate& onTickerUpdateCB) const;
 
     /**
      * Check if the Candlestick Stream is subscribed for a selected pair, if not then subscribe it. When force parameter

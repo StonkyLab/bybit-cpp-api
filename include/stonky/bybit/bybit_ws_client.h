@@ -32,6 +32,24 @@ public:
     ~WebSocketClient();
 
     /**
+     * Override the stream endpoint. Must be called before the first subscribe().
+     * Defaults to the public linear mainnet stream
+     * (stream.bybit.com:443, /v5/public/linear).
+     * @param host e.g. stream.bybit.com or stream-testnet.bybit.com
+     * @param port e.g. 443
+     * @param path e.g. /v5/public/linear or /v5/private
+     */
+    void setEndpoint(const std::string& host, const std::string& port, const std::string& path) const;
+
+    /**
+     * Set API credentials for a private stream. Must be called before the first
+     * subscribe(). The session then authenticates after every (re)connect.
+     * @param apiKey
+     * @param apiSecret
+     */
+    void setCredentials(const std::string& apiKey, const std::string& apiSecret) const;
+
+    /**
      * Run the WebSocket IO Context asynchronously and returns immediately without blocking the thread execution
      */
     void run() const;
@@ -56,11 +74,23 @@ public:
     void subscribe(const std::string& subscriptionFilter) const;
 
     /**
+     * Unsubscribe a previously subscribed stream. No-op when unknown.
+     * @param subscriptionFilter
+     */
+    void unsubscribe(const std::string& subscriptionFilter) const;
+
+    /**
      * Check if a stream is already subscribed
      * @param subscriptionFilter
      * @return True if subscribed
      */
     [[nodiscard]] bool isSubscribed(const std::string& subscriptionFilter) const;
+
+    /**
+     * True once the private session authenticated its CURRENT connection.
+     * Always false without credentials.
+     */
+    [[nodiscard]] bool isAuthenticated() const;
 };
 }
 

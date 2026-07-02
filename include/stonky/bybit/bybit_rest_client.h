@@ -23,7 +23,13 @@ class RESTClient {
     std::unique_ptr<P> m_p{};
 
 public:
-    RESTClient(const std::string& apiKey, const std::string& apiSecret);
+    /**
+     * @param apiKey
+     * @param apiSecret
+     * @param env Bybit environment — Mainnet (default), Testnet or Demo trading.
+     *            Selects the REST host (api / api-testnet / api-demo .bybit.com).
+     */
+    RESTClient(const std::string& apiKey, const std::string& apiSecret, Environment env = Environment::Mainnet);
 
     ~RESTClient();
 
@@ -114,6 +120,24 @@ public:
      * @see https://bybit-exchange.github.io/docs/v5/order/create-order
     */
     [[nodiscard]] OrderId placeOrder(Order& order) const;
+
+    /**
+     * Amend an open order in place (price and/or quantity). The order keeps its
+     * orderId/orderLinkId; Bybit re-evaluates queue priority at the new price
+     * level in a single venue transaction (one round-trip vs cancel + re-create).
+     * @param category i.e. Spot, Linear...
+     * @param symbol e.g. BTCUSDT
+     * @param orderId Venue order id; required if orderLinkId is empty
+     * @param orderLinkId User-set order id; required if orderId is empty
+     * @param price New limit price; pass 0 to leave the price unchanged
+     * @param qty New order quantity; pass 0 to leave the quantity unchanged
+     * @return OrderId structure of the amended order
+     * @throws nlohmann::json::exception, std::exception
+     * @see https://bybit-exchange.github.io/docs/v5/order/amend-order
+     */
+    [[nodiscard]] OrderId amendOrder(Category category, const std::string& symbol,
+                                     const std::string& orderId, const std::string& orderLinkId,
+                                     double price, double qty = 0.0) const;
 
     /**
      * Get open orders list

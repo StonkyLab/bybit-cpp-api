@@ -71,6 +71,7 @@ enum class OrderStatus : std::int32_t {
     New,
     Rejected,
     PartiallyFilled,
+    PartiallyFilledCanceled, /// spot only: IOC/market partially filled, rest cancelled
     Filled,
     PendingCancel,
     Cancelled,
@@ -116,6 +117,30 @@ enum class TimeInForce : std::int32_t {
 enum class ResponseType :std::int32_t {
     snapshot,
     delta
+};
+
+/// Bybit service environment. Selects the REST/WS hosts: Mainnet
+/// (api.bybit.com / stream.bybit.com), Testnet (api-testnet / stream-testnet)
+/// or Demo trading (api-demo / stream-demo — mainnet market data, paper fills).
+enum class Environment : std::int32_t {
+    Mainnet,
+    Testnet,
+    Demo
+};
+
+/// Execution type on the private WS "execution" topic. Funding entries land on
+/// the same topic as trades — fill accounting must filter on Trade.
+enum class ExecType : std::int32_t {
+    Trade,
+    AdlTrade, /// Auto-Deleveraging
+    Funding, /// Funding fee cashflow
+    BustTrade, /// Liquidation
+    Delivery, /// Futures delivery
+    Settle, /// Session settlement (inverse futures)
+    BlockTrade,
+    MovePosition,
+    FutureSpread,
+    UNKNOWN
 };
 }
 

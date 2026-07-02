@@ -18,6 +18,7 @@ Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@stonky.cz>, Stonky s.r.o.
 #include <regex>
 #include <set>
 #include <zlib.h>
+#include <boost/multiprecision/cpp_dec_float.hpp>
 
 namespace stonky::bybit {
 template<typename ValueType>
@@ -119,6 +120,7 @@ private:
     
 public:
 	RESTClient *parent = nullptr;
+	std::string host; /// REST host per Environment; empty = mainnet default
 	std::shared_ptr<HTTPSession> httpSession;
 	mutable std::shared_ptr<HTTPSession> publicHttpSession;
 	mutable RateLimiter rateLimiter;
@@ -363,9 +365,23 @@ public:
 	}
 };
 
-RESTClient::RESTClient(const std::string &apiKey, const std::string &apiSecret) : m_p(
+static std::string restHostForEnvironment(const Environment env) {
+	switch (env) {
+		case Environment::Testnet:
+			return "api-testnet.bybit.com";
+		case Environment::Demo:
+			return "api-demo.bybit.com";
+		case Environment::Mainnet:
+			break;
+	}
+
+	return ""; /// empty = HTTPSession's mainnet default
+}
+
+RESTClient::RESTClient(const std::string &apiKey, const std::string &apiSecret, const Environment env) : m_p(
 	std::make_unique<P>(this)) {
-	m_p->httpSession = std::make_shared<HTTPSession>(apiKey, apiSecret);
+	m_p->host = restHostForEnvironment(env);
+	m_p->httpSession = std::make_shared<HTTPSession>(apiKey, apiSecret, m_p->host);
 	m_p->publicHttpSession = std::make_shared<HTTPSession>("", "", "public.bybit.com");
 }
 
@@ -373,7 +389,7 @@ RESTClient::~RESTClient() = default;
 
 void RESTClient::setCredentials(const std::string &apiKey, const std::string &apiSecret) const {
 	m_p->httpSession.reset();
-	m_p->httpSession = std::make_shared<HTTPSession>(apiKey, apiSecret);
+	m_p->httpSession = std::make_shared<HTTPSession>(apiKey, apiSecret, m_p->host);
 }
 
 std::vector<Candle>
@@ -584,7 +600,10 @@ bool RESTClient::setPositionMode(Category category,
 	const auto response = m_p->checkResponse(m_p->httpSession->post(path, payload));
 
 	try {
-		return handleBybitResponse<Response>(response).retMsg == "OK";
+		/// retCode == 0 is the success authority (handleBybitResponse throws
+		/// otherwise); retMsg wording varies ("OK", "success", "") per endpoint.
+		handleBybitResponse<Response>(response);
+		return true;
 	} catch (std::exception &) {
 		Response resp;
 		resp.fromJson(nlohmann::json::parse(response.body()));
@@ -592,6 +611,8 @@ bool RESTClient::setPositionMode(Category category,
 		if (resp.retMsg == "Position mode is not modified") {
 			return true;
 		}
+
+		spdlog::warn(fmt::format("setPositionMode failed, code: {}, msg: {}", resp.retCode, resp.retMsg));
 	}
 
 	return false;
@@ -610,6 +631,53 @@ OrderId RESTClient::placeOrder(Order &order) const {
 
     m_p->rateLimiter.wait();
 	const auto response = m_p->checkResponse(m_p->httpSession->post(path, order.toJson()));
+	return handleBybitResponse<OrderId>(response);
+}
+
+OrderId RESTClient::amendOrder(const Category category,
+                               const std::string &symbol,
+                               const std::string &orderId,
+                               const std::string &orderLinkId,
+                               const double price,
+                               const double qty) const {
+	const std::string path = "/v5/order/amend";
+
+	double priceStep = 0.01;
+	double qtyStep = 0.01;
+
+	m_p->findPricePrecisionsForInstrument(category, symbol, priceStep, qtyStep);
+
+	// Same step → decimal-places derivation as Order::toJson: normalize the
+	// step through cpp_dec_float_50 so std::to_string's trailing zeros don't
+	// inflate the precision ("0.001000" → "0.001" → 3 places).
+	const auto precisionFromStep = [](const double step) {
+		const boost::multiprecision::cpp_dec_float_50 stepDec(std::to_string(step));
+		const auto parts = splitString(stepDec.str(), '.');
+		return parts.size() == 2 ? static_cast<int>(parts[1].length()) : 0;
+	};
+
+	nlohmann::json payload;
+	payload["category"] = magic_enum::enum_name(category);
+	payload["symbol"] = symbol;
+
+	if (!orderId.empty()) {
+		payload["orderId"] = orderId;
+	}
+
+	if (!orderLinkId.empty()) {
+		payload["orderLinkId"] = orderLinkId;
+	}
+
+	if (price > 0.0) {
+		payload["price"] = formatDouble(precisionFromStep(priceStep), price);
+	}
+
+	if (qty > 0.0) {
+		payload["qty"] = formatDouble(precisionFromStep(qtyStep), qty);
+	}
+
+    m_p->rateLimiter.wait();
+	const auto response = m_p->checkResponse(m_p->httpSession->post(path, payload));
 	return handleBybitResponse<OrderId>(response);
 }
 
@@ -684,7 +752,7 @@ OrderId RESTClient::cancelOrder(const Category category,
 	}
 
 	if (!orderLinkId.empty()) {
-		parameters.insert_or_assign("orderLinkId", orderId);
+		parameters.insert_or_assign("orderLinkId", orderLinkId);
 	}
 
     m_p->rateLimiter.wait();

@@ -24,22 +24,41 @@ struct WSStreamManager::P {
     std::map<std::string, EventTicker> tickers;
     std::map<std::string, std::map<CandleInterval, EventCandlestick>> candlesticks;
     onLogMessage logMessageCB;
+    onTickerUpdate tickerUpdateCB;
 
     explicit P() : wsClient(std::make_unique<WebSocketClient>()) {
         wsClient->setDataEventCallback([&](const Event& event) {
             if (event.topic.find("tickers") != std::string::npos) {
-                std::lock_guard lk(instrumentInfoLocker);
+                EventTicker merged;
+                bool haveUpdate = false;
 
-                try {
-                    if (const auto it = tickers.find(readSymbolFromFilter(event.topic)); it == tickers.end()) {
-                        EventTicker eventTicker;
-                        eventTicker.loadEventData(event);
-                        tickers.insert_or_assign(eventTicker.symbol, eventTicker);
-                    } else {
-                        it->second.loadEventData(event);
+                {
+                    std::lock_guard lk(instrumentInfoLocker);
+
+                    try {
+                        const auto nowMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+
+                        if (const auto it = tickers.find(readSymbolFromFilter(event.topic)); it == tickers.end()) {
+                            EventTicker eventTicker;
+                            eventTicker.loadEventData(event);
+                            eventTicker.receivedTimestamp = nowMs;
+                            tickers.insert_or_assign(eventTicker.symbol, eventTicker);
+                            merged = eventTicker;
+                            haveUpdate = true;
+                        } else {
+                            it->second.loadEventData(event);
+                            it->second.receivedTimestamp = nowMs;
+                            merged = it->second;
+                            haveUpdate = true;
+                        }
+                    } catch (std::exception& e) {
+                        logMessageCB(LogSeverity::Error, fmt::format("{}: {}", MAKE_FILELINE, e.what()));
                     }
-                } catch (std::exception& e) {
-                    logMessageCB(LogSeverity::Error, fmt::format("{}: {}", MAKE_FILELINE, e.what()));
+                }
+
+                /// Outside the lock — the callback may take its own locks.
+                if (haveUpdate && tickerUpdateCB) {
+                    tickerUpdateCB(merged);
                 }
             } else if (event.topic.find("kline") != std::string::npos) {
                 std::lock_guard lk(candlestickLocker);
@@ -102,6 +121,18 @@ void WSStreamManager::subscribeTickerStream(const std::string& pair) const {
 
     m_p->wsClient->run();
 }
+
+void WSStreamManager::unsubscribeTickerStream(const std::string& pair) const {
+    std::string subscriptionFilter = "tickers.";
+    subscriptionFilter.append(pair);
+
+    m_p->wsClient->unsubscribe(subscriptionFilter);
+
+    std::lock_guard lk(m_p->instrumentInfoLocker);
+    m_p->tickers.erase(pair);
+}
+
+void WSStreamManager::setTickerUpdateCallback(const onTickerUpdate& onTickerUpdateCB) const { m_p->tickerUpdateCB = onTickerUpdateCB; }
 
 void WSStreamManager::subscribeCandlestickStream(const std::string& pair, const CandleInterval interval) const {
     std::string subscriptionFilter = "kline.";

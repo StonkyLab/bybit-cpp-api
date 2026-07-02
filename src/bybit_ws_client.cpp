@@ -21,13 +21,19 @@ namespace stonky::bybit {
 
 static auto BYBIT_FUTURES_WS_HOST = "stream.bybit.com";
 static auto BYBIT_FUTURES_WS_PORT = "443";
+static auto BYBIT_FUTURES_WS_PATH = "/v5/public/linear";
 
 struct WebSocketClient::P {
     boost::asio::io_context ioContext;
     boost::asio::ssl::context ctx;
     std::string host = {BYBIT_FUTURES_WS_HOST};
     std::string port = {BYBIT_FUTURES_WS_PORT};
-    std::weak_ptr<WebSocketSession> session;
+    std::string path = {BYBIT_FUTURES_WS_PATH};
+    std::string apiKey;
+    std::string apiSecret;
+    /// Keeps the session alive across reconnect cycles; the session's own
+    /// async chain also holds shared_from_this while ops are pending.
+    std::shared_ptr<WebSocketSession> session;
     std::thread ioThread;
     std::atomic<bool> isRunning = false;
     onLogMessage logMessageCB;
@@ -41,11 +47,26 @@ WebSocketClient::WebSocketClient() : m_p(std::make_unique<P>()) {
 }
 
 WebSocketClient::~WebSocketClient() {
+    if (m_p->session) {
+        m_p->session->close();
+    }
+
     m_p->ioContext.stop();
 
     if (m_p->ioThread.joinable()) {
         m_p->ioThread.join();
     }
+}
+
+void WebSocketClient::setEndpoint(const std::string& host, const std::string& port, const std::string& path) const {
+    m_p->host = host;
+    m_p->port = port;
+    m_p->path = path;
+}
+
+void WebSocketClient::setCredentials(const std::string& apiKey, const std::string& apiSecret) const {
+    m_p->apiKey = apiKey;
+    m_p->apiSecret = apiSecret;
 }
 
 void WebSocketClient::run() const {
@@ -91,20 +112,38 @@ void WebSocketClient::setDataEventCallback(const onDataEvent& onDataEventCB) con
 }
 
 void WebSocketClient::subscribe(const std::string& subscriptionFilter) const {
-    if (const auto session = m_p->session.lock()) {
-        session->subscribe(subscriptionFilter);
+    if (m_p->session) {
+        m_p->session->subscribe(subscriptionFilter);
         return;
     }
 
     const auto ws = std::make_shared<WebSocketSession>(m_p->ioContext, m_p->ctx, m_p->logMessageCB);
-    std::weak_ptr wp{ws};
-    m_p->session = std::move(wp);
-    ws->run(BYBIT_FUTURES_WS_HOST, BYBIT_FUTURES_WS_PORT, subscriptionFilter, m_p->dataEventCB);
+    m_p->session = ws;
+
+    if (!m_p->apiKey.empty() && !m_p->apiSecret.empty()) {
+        ws->setCredentials(m_p->apiKey, m_p->apiSecret);
+    }
+
+    ws->run(m_p->host, m_p->port, m_p->path, subscriptionFilter, m_p->dataEventCB);
+}
+
+void WebSocketClient::unsubscribe(const std::string& subscriptionFilter) const {
+    if (m_p->session) {
+        m_p->session->unsubscribe(subscriptionFilter);
+    }
 }
 
 bool WebSocketClient::isSubscribed(const std::string& subscriptionFilter) const {
-    if (const auto session = m_p->session.lock()) {
-        return session->isSubscribed(subscriptionFilter);
+    if (m_p->session) {
+        return m_p->session->isSubscribed(subscriptionFilter);
+    }
+
+    return false;
+}
+
+bool WebSocketClient::isAuthenticated() const {
+    if (m_p->session) {
+        return m_p->session->isAuthenticated();
     }
 
     return false;
