@@ -8,6 +8,7 @@ Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@stonky.cz>, Stonky s.r.o.
 
 #include "stonky/bybit/bybit_ws_client.h"
 #include <boost/beast/core.hpp>
+#include <mutex>
 #include <thread>
 
 using namespace std::chrono_literals;
@@ -24,6 +25,11 @@ static auto BYBIT_FUTURES_WS_PORT = "443";
 static auto BYBIT_FUTURES_WS_PATH = "/v5/public/linear";
 
 struct WebSocketClient::P {
+    /// Guards the lazy session/io-thread creation — subscribe()/run() are hit
+    /// concurrently by per-leg worker threads (subscribeQuotes) on the first
+    /// rebalance; without this, two racing threads could each create a session
+    /// or double-assign a joinable std::thread (std::terminate).
+    std::recursive_mutex clientLocker;
     boost::asio::io_context ioContext;
     boost::asio::ssl::context ctx;
     std::string host = {BYBIT_FUTURES_WS_HOST};
@@ -70,6 +76,8 @@ void WebSocketClient::setCredentials(const std::string& apiKey, const std::strin
 }
 
 void WebSocketClient::run() const {
+    std::lock_guard lk(m_p->clientLocker);
+
     if (m_p->isRunning) {
         return;
     }
@@ -112,6 +120,8 @@ void WebSocketClient::setDataEventCallback(const onDataEvent& onDataEventCB) con
 }
 
 void WebSocketClient::subscribe(const std::string& subscriptionFilter) const {
+    std::lock_guard lk(m_p->clientLocker);
+
     if (m_p->session) {
         m_p->session->subscribe(subscriptionFilter);
         return;
@@ -128,12 +138,16 @@ void WebSocketClient::subscribe(const std::string& subscriptionFilter) const {
 }
 
 void WebSocketClient::unsubscribe(const std::string& subscriptionFilter) const {
+    std::lock_guard lk(m_p->clientLocker);
+
     if (m_p->session) {
         m_p->session->unsubscribe(subscriptionFilter);
     }
 }
 
 bool WebSocketClient::isSubscribed(const std::string& subscriptionFilter) const {
+    std::lock_guard lk(m_p->clientLocker);
+
     if (m_p->session) {
         return m_p->session->isSubscribed(subscriptionFilter);
     }
@@ -142,6 +156,8 @@ bool WebSocketClient::isSubscribed(const std::string& subscriptionFilter) const 
 }
 
 bool WebSocketClient::isAuthenticated() const {
+    std::lock_guard lk(m_p->clientLocker);
+
     if (m_p->session) {
         return m_p->session->isAuthenticated();
     }
