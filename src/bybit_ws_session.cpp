@@ -23,6 +23,7 @@ Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@stonky.cz>, Stonky s.r.o.
 #include <atomic>
 #include <list>
 #include <map>
+#include <fmt/ranges.h>
 
 namespace stonky::bybit {
 static constexpr int PING_INTERVAL_IN_S = 20;

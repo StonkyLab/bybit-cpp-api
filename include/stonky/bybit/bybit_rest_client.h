@@ -79,12 +79,14 @@ public:
     /**
      * Get position info - if Hedge mode is enabled then there is more than one Position
      * @param category i.e. Spot, Linear...
-     * @param symbol e.g. BTCUSDT or empty for all symbols
+     * @param symbol e.g. BTCUSDT; for linear/inverse leave empty and pass settleCoin instead
+     * @param settleCoin e.g. USDT — linear/inverse require symbol OR settleCoin when
+     *        listing all positions (Bybit rejects category=linear with neither: retCode 10001)
      * @return vector of Position structures
      * @throws nlohmann::json::exception, std::exception
      * @see https://bybit-exchange.github.io/docs/v5/position
      */
-    [[nodiscard]] std::vector<Position> getPositionInfo(Category category, const std::string& symbol = "") const;
+    [[nodiscard]] std::vector<Position> getPositionInfo(Category category, const std::string& symbol = "", const std::string& settleCoin = "") const;
 
     /**
      * Get instruments info
@@ -195,8 +197,9 @@ public:
     /**
      * Close all open positions with market order
      * @param category i.e. Spot, Linear...
+     * @param settleCoin e.g. USDT — required for linear/inverse (see getPositionInfo)
      */
-    void closeAllPositions(Category category) const;
+    void closeAllPositions(Category category, const std::string& settleCoin = "") const;
 
     /**
      * Returns a vector of funding rates for a given category and symbol.

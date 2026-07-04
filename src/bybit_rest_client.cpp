@@ -488,7 +488,7 @@ std::int64_t RESTClient::getServerTime() const {
 	return timeResponse.timeNano / 1000000;
 }
 
-std::vector<Position> RESTClient::getPositionInfo(const Category category, const std::string &symbol) const {
+std::vector<Position> RESTClient::getPositionInfo(const Category category, const std::string &symbol, const std::string &settleCoin) const {
 	const std::string path = "/v5/position/list";
 	std::map<std::string, std::string> parameters;
 
@@ -496,6 +496,13 @@ std::vector<Position> RESTClient::getPositionInfo(const Category category, const
 
 	if (!symbol.empty()) {
 		parameters.insert_or_assign("symbol", symbol);
+	}
+
+	// Linear/inverse require symbol OR settleCoin OR baseCoin when listing all
+	// positions; without one Bybit returns retCode 10001 ("Missing some
+	// parameters that must be filled in, symbol or settleCoin").
+	if (!settleCoin.empty()) {
+		parameters.insert_or_assign("settleCoin", settleCoin);
 	}
 
     m_p->rateLimiter.wait();
@@ -764,8 +771,8 @@ void RESTClient::setInstruments(const std::vector<Instrument> &instruments) cons
 	m_p->setInstruments(instruments);
 }
 
-void RESTClient::closeAllPositions(const Category category) const {
-	for (const auto positionList = getPositionInfo(category); const auto &pos: positionList) {
+void RESTClient::closeAllPositions(const Category category, const std::string &settleCoin) const {
+	for (const auto positionList = getPositionInfo(category, "", settleCoin); const auto &pos: positionList) {
 		if (!pos.zeroSize) {
 			Order ord;
 			ord.symbol = pos.symbol;
