@@ -7,6 +7,7 @@ Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@stonky.cz>, Stonky s.r.o.
 */
 
 #include "stonky/bybit/bybit_ws_session.h"
+#include <boost/asio/ssl/host_name_verification.hpp>
 #include "stonky/utils/log_utils.h"
 #include "stonky/utils/json_utils.h"
 #include "stonky/utils/utils.h"
@@ -274,6 +275,9 @@ struct WebSocketSession::P {
         hostHeader = host;
         buffer.consume(buffer.size());
         ws = std::make_shared<WsStream>(strand, ctx);
+        // Bind the verified peer certificate to the expected hostname (the ctx
+        // has verify_peer on; SNI alone authenticates nothing).
+        ws->next_layer().set_verify_callback(boost::asio::ssl::host_name_verification(host));
 
         resolver.async_resolve(host, port, [this, self, gen](const boost::beast::error_code &ec, const boost::asio::ip::tcp::resolver::results_type &results) {
             if (gen != generation) {

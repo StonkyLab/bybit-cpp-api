@@ -7,6 +7,7 @@ Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@stonky.cz>, Stonky s.r.o.
 */
 
 #include "stonky/bybit/bybit_ws_client.h"
+#include "stonky/bybit/tls_verify.h"
 #include <boost/beast/core.hpp>
 #include <mutex>
 #include <thread>
@@ -46,6 +47,7 @@ struct WebSocketClient::P {
     onDataEvent dataEventCB;
 
     P() : ctx(boost::asio::ssl::context::sslv23_client) {
+        enableTlsPeerVerification(ctx);
     }
 };
 
