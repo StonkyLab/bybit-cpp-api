@@ -310,16 +310,11 @@ nlohmann::json Order::toJson() const {
         json["orderLinkId"] = orderLinkId;
     }
 
-    /// Number of decimals derived from the instrument steps
-    const auto precisionFromStep = [](const double step) {
-        const boost::multiprecision::cpp_dec_float_50 stepDec(std::to_string(step));
-        const auto parts = splitString(stepDec.str(), '.');
-        return parts.size() == 2 ? static_cast<int>(parts[1].length()) : 0;
-    };
+    /// Number of decimals derived from the instrument steps (see
+    /// decimalPlacesFromStep for why std::to_string must not be used here).
+    const auto pricePrecision = decimalPlacesFromStep(priceStep);
 
-    const auto pricePrecision = precisionFromStep(priceStep);
-
-    json["qty"] = formatDouble(precisionFromStep(qtyStep), qty);
+    json["qty"] = formatDouble(decimalPlacesFromStep(qtyStep), qty);
 
     if (orderType == OrderType::Limit) {
         json["price"] = formatDouble(pricePrecision, price);

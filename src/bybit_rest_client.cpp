@@ -681,14 +681,9 @@ OrderId RESTClient::amendOrder(const Category category,
 		throw std::runtime_error(fmt::format("Bybit amendOrder: no instrument metadata for {} — refusing to guess price/qty precision", symbol));
 	}
 
-	// Same step → decimal-places derivation as Order::toJson: normalize the
-	// step through cpp_dec_float_50 so std::to_string's trailing zeros don't
-	// inflate the precision ("0.001000" → "0.001" → 3 places).
-	const auto precisionFromStep = [](const double step) {
-		const boost::multiprecision::cpp_dec_float_50 stepDec(std::to_string(step));
-		const auto parts = splitString(stepDec.str(), '.');
-		return parts.size() == 2 ? static_cast<int>(parts[1].length()) : 0;
-	};
+	// Same step → decimal-places derivation as Order::toJson (shared helper —
+	// the old std::to_string path broke on sub-1e-6 steps, "Price invalid").
+	const auto precisionFromStep = [](const double step) { return decimalPlacesFromStep(step); };
 
 	nlohmann::json payload;
 	payload["category"] = magic_enum::enum_name(category);

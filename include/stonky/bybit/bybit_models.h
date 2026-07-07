@@ -12,8 +12,36 @@ Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@stonky.cz>, Stonky s.r.o.
 #include "stonky/bybit/bybit_enums.h"
 #include "stonky/interface/i_json.h"
 #include <nlohmann/json.hpp>
+#include <cmath>
 
 namespace stonky::bybit {
+
+/**
+ * Decimal places implied by an instrument step (tickSize / qtyStep), for
+ * serializing prices and quantities as fixed-point strings.
+ *
+ * Must NOT be derived via std::to_string(step): its fixed 6 decimals turn any
+ * step below 1e-6 (e.g. the 1e-7 tick on many low-cap perps) into "0.000000"
+ * → 0 places → every price serialized as "0" → venue rejects with
+ * "Price invalid" (live-observed 2026-07-07). Handles non-power-of-ten steps
+ * (0.000025 → 6) as well.
+ */
+[[nodiscard]] inline int decimalPlacesFromStep(const double step) {
+    if (step <= 0.0) {
+        return 0;
+    }
+
+    int places = 0;
+    double scaled = step;
+
+    while (places < 12 && std::abs(scaled - static_cast<double>(std::llround(scaled))) > scaled * 1e-9 + 1e-12) {
+        scaled *= 10.0;
+        ++places;
+    }
+
+    return places;
+}
+
 struct Response : IJson {
     int retCode{};
     std::string retMsg{};
