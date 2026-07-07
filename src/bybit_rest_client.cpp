@@ -277,6 +277,17 @@ public:
 				return true;
 			}
 		}
+
+		// Cache miss — a market listed after the cache was primed. Symbol-
+		// filtered force fetch (deliberately no cache side effect).
+		for (const auto symbols = parent->getInstrumentsInfo(category, symbol, true); const auto &symbolEl: symbols) {
+			if (symbolEl.symbol == symbol) {
+				priceStep = symbolEl.priceFilter.tickSize;
+				qtyStep = symbolEl.lotSizeFilter.qtyStep;
+				return true;
+			}
+		}
+
 		return false;
 	}
 
@@ -571,7 +582,16 @@ RESTClient::getInstrumentsInfo(const Category category, const std::string &symbo
 			}
 		} while (!instr.nextPageCursor.empty());
 
-		m_p->setInstruments(temp);
+		// Only a FULL-universe fetch may seed the shared cache. A symbol-
+		// filtered fetch caching its subset used to poison the cache for every
+		// other symbol — placeOrder's precision lookup then fell back to the
+		// 0.01 defaults and the venue rejected with "Price invalid" /
+		// "contracts exceeds minimum limit" (live-observed 2026-07-07).
+		if (symbol.empty()) {
+			m_p->setInstruments(temp);
+		} else {
+			return temp;
+		}
 	}
 
 	return m_p->getInstruments().instruments;
@@ -631,7 +651,11 @@ OrderId RESTClient::placeOrder(Order &order) const {
 	double priceStep = 0.01;
 	double qtyStep = 0.01;
 
-	m_p->findPricePrecisionsForInstrument(order.category, order.symbol, priceStep, qtyStep);
+	// A guessed precision means a silently mangled qty/price ("Price invalid",
+	// sub-min qty) — refuse to submit rather than round to a made-up step.
+	if (!m_p->findPricePrecisionsForInstrument(order.category, order.symbol, priceStep, qtyStep)) {
+		throw std::runtime_error(fmt::format("Bybit placeOrder: no instrument metadata for {} — refusing to guess price/qty precision", order.symbol));
+	}
 
 	order.priceStep = priceStep;
 	order.qtyStep = qtyStep;
@@ -652,7 +676,10 @@ OrderId RESTClient::amendOrder(const Category category,
 	double priceStep = 0.01;
 	double qtyStep = 0.01;
 
-	m_p->findPricePrecisionsForInstrument(category, symbol, priceStep, qtyStep);
+	// Same rule as placeOrder: never guess the precision.
+	if (!m_p->findPricePrecisionsForInstrument(category, symbol, priceStep, qtyStep)) {
+		throw std::runtime_error(fmt::format("Bybit amendOrder: no instrument metadata for {} — refusing to guess price/qty precision", symbol));
+	}
 
 	// Same step → decimal-places derivation as Order::toJson: normalize the
 	// step through cpp_dec_float_50 so std::to_string's trailing zeros don't
