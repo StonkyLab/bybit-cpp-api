@@ -64,7 +64,10 @@ if (MODULE_MANAGER)
     add_library(bybit_api SHARED ${SOURCES} ${HEADERS} ${MODULE_SOURCES} ${MODULE_HEADERS})
 else ()
     add_library(bybit_api STATIC ${SOURCES} ${HEADERS})
+endif ()
 
+option(ENABLE_TESTS "Build bybit_api test executables" OFF)
+if (ENABLE_TESTS)
     add_executable(bybit_test test/main.cpp)
     target_link_libraries(bybit_test PRIVATE spdlog::spdlog_header_only bybit_api)
 
