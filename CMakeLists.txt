@@ -35,7 +35,8 @@ set(HEADERS
         include/stonky/bybit/bybit_ws_session.h
         include/stonky/bybit/bybit_ws_stream_manager.h
         include/stonky/bybit/bybit_ws_private_stream_manager.h
-        include/stonky/bybit/bybit_event_models.h)
+        include/stonky/bybit/bybit_event_models.h
+        include/stonky/bybit/bybit_execution_gateway.h)
 
 set(SOURCES
         src/bybit.cpp
@@ -46,7 +47,8 @@ set(SOURCES
         src/bybit_ws_session.cpp
         src/bybit_ws_stream_manager.cpp
         src/bybit_ws_private_stream_manager.cpp
-        src/bybit_event_models.cpp)
+        src/bybit_event_models.cpp
+        src/bybit_execution_gateway.cpp)
 
 if (MODULE_MANAGER)
     set(MODULE_HEADERS
