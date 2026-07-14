@@ -73,6 +73,9 @@ if (ENABLE_TESTS)
 
     add_executable(bybit_benchmark test/benchmark.cpp)
     target_link_libraries(bybit_benchmark PRIVATE spdlog::spdlog_header_only bybit_api)
+
+    add_executable(bybit_exec_probe test/exec_probe.cpp)
+    target_link_libraries(bybit_exec_probe PRIVATE spdlog::spdlog_header_only bybit_api)
 endif ()
 
 target_link_libraries(bybit_api PRIVATE spdlog::spdlog_header_only OpenSSL::Crypto OpenSSL::SSL ZLIB::ZLIB stonky_common nlohmann_json::nlohmann_json)

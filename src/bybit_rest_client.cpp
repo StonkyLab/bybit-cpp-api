@@ -742,6 +742,36 @@ RESTClient::getOpenOrder(const Category category,
 	return {};
 }
 
+std::vector<EventExecution> RESTClient::getExecutions(const Category category, const std::string &symbol, const std::string &orderLinkId) const {
+	const std::string path = "/v5/execution/list";
+	std::map<std::string, std::string> parameters;
+	parameters.insert_or_assign("category", magic_enum::enum_name(category));
+
+	if (!symbol.empty()) {
+		parameters.insert_or_assign("symbol", symbol);
+	}
+
+	if (!orderLinkId.empty()) {
+		parameters.insert_or_assign("orderLinkId", orderLinkId);
+	}
+
+	m_p->rateLimiter.wait();
+	const auto response = m_p->checkResponse(m_p->httpSession->get(path, parameters));
+	const auto result = handleBybitResponse<Response>(response).result;
+
+	std::vector<EventExecution> executions;
+
+	if (result.contains("list") && result["list"].is_array()) {
+		for (const auto &el: result["list"]) {
+			EventExecution execution;
+			execution.fromJson(el);
+			executions.push_back(execution);
+		}
+	}
+
+	return executions;
+}
+
 std::vector<OrderId> RESTClient::cancelAllOrders(Category category, const std::string &symbol) const {
 	std::vector<OrderId> retVal;
 	std::string path = "/v5/order/cancel-all";

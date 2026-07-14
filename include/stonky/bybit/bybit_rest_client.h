@@ -10,6 +10,7 @@ Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@stonky.cz>, Stonky s.r.o.
 #define INCLUDE_STONKY_BYBIT_FUTURES_REST_CLIENT_H
 
 #include "stonky/bybit/bybit_models.h"
+#include "stonky/bybit/bybit_event_models.h"
 #include <string>
 #include <memory>
 #include <optional>
@@ -164,6 +165,20 @@ public:
     [[nodiscard]] std::optional<OrderResponse>
     getOpenOrder(Category category, const std::string& symbol, const std::string& orderId,
                  const std::string& orderLinkId) const;
+
+    /**
+     * Get an order's executions (trade history) — used to reconcile fills the
+     * private WS may have dropped during a reconnect gap. Query by orderLinkId
+     * to fetch every fill of one order; each carries a stable execId that the
+     * chase core dedups against the WS execution feed (re-crediting is harmless).
+     * @param category i.e. Spot, Linear...
+     * @param symbol e.g. BTCUSDT
+     * @param orderLinkId user-set order id (our clientOrderId)
+     * @return executions for the order (execType == Trade are the real fills)
+     * @see https://bybit-exchange.github.io/docs/v5/order/execution
+     */
+    [[nodiscard]] std::vector<EventExecution>
+    getExecutions(Category category, const std::string& symbol, const std::string& orderLinkId) const;
 
     /**
      * Cancel all orders for a given symbol
