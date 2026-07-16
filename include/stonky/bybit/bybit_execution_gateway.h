@@ -6,8 +6,8 @@ SPDX-License-Identifier: MIT
 Copyright (c) 2026 Vitezslav Kot <vitezslav.kot@stonky.cz>, Stonky s.r.o.
 */
 
-#ifndef DIRTY_CARRY_BYBIT_EXECUTION_GATEWAY_H
-#define DIRTY_CARRY_BYBIT_EXECUTION_GATEWAY_H
+#ifndef BYBIT_EXECUTION_GATEWAY_H
+#define BYBIT_EXECUTION_GATEWAY_H
 
 #include <stonky/interface/i_execution_gateway.h>
 #include "stonky/bybit/bybit_enums.h"
@@ -67,4 +67,4 @@ public:
 
 } // namespace stonky::execution
 
-#endif // DIRTY_CARRY_BYBIT_EXECUTION_GATEWAY_H
+#endif // BYBIT_EXECUTION_GATEWAY_H
