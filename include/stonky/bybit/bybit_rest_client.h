@@ -103,6 +103,16 @@ public:
                                                              const std::string& status = "") const;
 
     /**
+     * Get info of a single instrument. Unlike getInstrumentsInfo() this does not copy the whole instrument list,
+     * use it whenever only one symbol is of interest.
+     * @param category i.e. Spot, Linear...
+     * @param symbol e.g. BTCUSDT
+     * @throws nlohmann::json::exception, std::exception
+     * @return filled Instrument structure or bad option when the symbol is not listed
+     */
+    [[nodiscard]] std::optional<Instrument> getInstrumentInfo(Category category, const std::string& symbol) const;
+
+    /**
      * Switching between One-Way Mode and Hedge Mode
      * @param category i.e. Spot, Linear...
      * @param symbol e.g. BTCUSDT, Required if not passing coin

@@ -15,6 +15,9 @@ Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@stonky.cz>, Stonky s.r.o.
 #include <boost/asio/ssl/host_name_verification.hpp>
 #include <boost/beast/version.hpp>
 #include <openssl/hmac.h>
+#include <spdlog/spdlog.h>
+#include <atomic>
+#include <limits>
 
 namespace stonky::bybit {
 namespace ssl = boost::asio::ssl;
@@ -22,6 +25,9 @@ using tcp = net::ip::tcp;
 
 auto API_MAINNET_URI = "api.bybit.com";
 auto API_TESTNET_URI = "api-testnet.bybit.com";
+
+/// How often the local clock is re-synchronized against the exchange clock
+static constexpr std::int64_t TIME_SYNC_INTERVAL_MS = 30 * 60 * 1000;
 
 struct HTTPSession::P {
     net::io_context ioc;
@@ -31,9 +37,23 @@ struct HTTPSession::P {
     std::string uri;
     const EVP_MD* evpMd;
 
+    /// Difference between the exchange clock and the local clock. Signed requests are rejected once the local clock
+    /// drifts more than recv_window away from the server, so the timestamps are corrected by this offset.
+    mutable std::atomic<std::int64_t> timeOffsetMs{0};
+    mutable std::atomic<std::int64_t> lastTimeSyncMs{0};
+    const HTTPSession* parent{nullptr};
+
     P() : evpMd(EVP_sha256()) {}
 
     http::response<http::string_body> request(http::request<http::string_body> req);
+
+    /// Local clock corrected by the measured exchange offset
+    [[nodiscard]] std::int64_t signingTimestamp() const {
+        ensureTimeSync();
+        return getMsTimestamp(currentTime()).count() + timeOffsetMs.load();
+    }
+
+    void ensureTimeSync() const;
 
     static std::string createQueryStr(const std::map<std::string, std::string>& parameters) {
         std::string queryStr;
@@ -52,7 +72,7 @@ struct HTTPSession::P {
     }
 
     void authenticatePost(http::request<http::string_body>& req, const nlohmann::json& json) const {
-        const auto ts = getMsTimestamp(currentTime()).count();
+        const auto ts = signingTimestamp();
 
         nlohmann::json extendedJson = json;
         extendedJson["timestamp"] = ts;
@@ -88,7 +108,7 @@ struct HTTPSession::P {
 
         std::string parameterString;
 
-        const auto ts = getMsTimestamp(currentTime()).count();
+        const auto ts = signingTimestamp();
         parameterString.append(std::to_string(ts));
         parameterString.append(apiKey);
         parameterString.append(std::to_string(receiveWindow));
@@ -111,6 +131,7 @@ struct HTTPSession::P {
 };
 
 HTTPSession::HTTPSession(const std::string& apiKey, const std::string& apiSecret, const std::string& host) : m_p(std::make_unique<P>()) {
+    m_p->parent = this;
     m_p->uri = host.empty() ? API_MAINNET_URI : host;
     m_p->apiKey = apiKey;
     m_p->apiSecret = apiSecret;
@@ -137,6 +158,50 @@ http::response<http::string_body> HTTPSession::post(const std::string& path, con
     return m_p->request(req);
 }
 
+void HTTPSession::P::ensureTimeSync() const {
+    const auto now = getMsTimestamp(currentTime()).count();
+
+    if (lastTimeSyncMs != 0 && now - lastTimeSyncMs < TIME_SYNC_INTERVAL_MS) {
+        return;
+    }
+
+    /// Set upfront so that a failing endpoint is not hammered on every single signed request
+    lastTimeSyncMs = now;
+
+    try {
+        /// Public endpoint. Recursion through the signing path is prevented by lastTimeSyncMs being set above -
+        /// the nested signingTimestamp() call sees a fresh sync mark and returns immediately.
+        const auto response = parent->get("/v5/market/time", {});
+
+        if (response.result() != http::status::ok) {
+            spdlog::warn(fmt::format("Time synchronization failed, HTTP {}", response.result_int()));
+            return;
+        }
+
+        const auto json = nlohmann::json::parse(response.body());
+
+        if (!json.contains("result")) {
+            return;
+        }
+
+        /// timeNano arrives as a STRING, like every number in the Bybit API
+        const auto timeNano = readStringAsInt64(json["result"], "timeNano");
+
+        if (timeNano <= 0) {
+            return;
+        }
+
+        const auto offset = timeNano / 1000000 - getMsTimestamp(currentTime()).count();
+        timeOffsetMs = offset;
+
+        if (std::abs(offset) > 1000) {
+            spdlog::warn(fmt::format("Local clock differs from the exchange clock by {} ms, compensating", offset));
+        }
+    } catch (const std::exception& e) {
+        spdlog::warn(fmt::format("Time synchronization failed: {}", e.what()));
+    }
+}
+
 http::response<http::string_body> HTTPSession::P::request(http::request<http::string_body> req) {
     req.set(http::field::host, uri);
     req.set(http::field::user_agent, BOOST_BEAST_VERSION_STRING);
@@ -154,14 +219,25 @@ http::response<http::string_body> HTTPSession::P::request(http::request<http::st
         throw boost::system::system_error{ec};
     }
 
-    auto const results = resolver.resolve(uri, "443");
-    net::connect(stream.next_layer(), results.begin(), results.end());
-    stream.handshake(ssl::stream_base::client);
-
-    http::write(stream, req);
     beast::flat_buffer buffer;
-    http::response<http::string_body> response;
-    http::read(stream, buffer, response);
+    http::response_parser<http::string_body> parser;
+
+    /// Beast defaults to an 8 MB body limit, which the public data archives (daily trade dumps) exceed
+    parser.body_limit((std::numeric_limits<std::uint64_t>::max)());
+
+    /// Everything below can fail without the exchange ever seeing the request - or after it has seen it. The caller
+    /// must be able to tell that apart from a rejection, hence the dedicated exception type.
+    try {
+        auto const results = resolver.resolve(uri, "443");
+        net::connect(stream.next_layer(), results.begin(), results.end());
+        stream.handshake(ssl::stream_base::client);
+        http::write(stream, req);
+        http::read(stream, buffer, parser);
+    } catch (const boost::system::system_error& e) {
+        throw TransportError(fmt::format("Transport failure for {}: {}", std::string(req.target()), e.what()));
+    }
+
+    auto response = parser.release();
 
     boost::system::error_code ec;
     [[maybe_unused]] const auto rc = stream.shutdown(ec);

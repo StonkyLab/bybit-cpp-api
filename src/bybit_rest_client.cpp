@@ -256,6 +256,25 @@ public:
 		return m_instruments;
 	}
 
+	/// Lightweight lookup - the instrument list holds several hundred entries, copying all of them just to read one
+	/// symbol is needlessly expensive on the hot path (BrokerAsset runs for every asset on every tick)
+	[[nodiscard]] std::optional<Instrument> findInstrument(const std::string &symbol) const {
+		std::lock_guard lk(m_locker);
+
+		for (const auto &instrument: m_instruments.instruments) {
+			if (instrument.symbol == symbol) {
+				return instrument;
+			}
+		}
+
+		return {};
+	}
+
+	[[nodiscard]] bool areInstrumentsEmpty() const {
+		std::lock_guard lk(m_locker);
+		return m_instruments.instruments.empty();
+	}
+
 	void setInstruments(const Instruments &instruments) {
 		std::lock_guard lk(m_locker);
 		m_instruments = instruments;
@@ -597,6 +616,27 @@ RESTClient::getInstrumentsInfo(const Category category, const std::string &symbo
 	return m_p->getInstruments().instruments;
 }
 
+std::optional<Instrument> RESTClient::getInstrumentInfo(const Category category, const std::string &symbol) const {
+	if (m_p->areInstrumentsEmpty()) {
+		/// Primes the shared cache with the full universe
+		static_cast<void>(getInstrumentsInfo(category));
+	}
+
+	if (auto instrument = m_p->findInstrument(symbol)) {
+		return instrument;
+	}
+
+	/// Cache miss - a market listed after the cache was primed. Symbol filtered fetch, deliberately no cache side
+	/// effect (a subset in the shared cache would poison the lookup for every other symbol).
+	for (const auto &instrument: getInstrumentsInfo(category, symbol, true)) {
+		if (instrument.symbol == symbol) {
+			return instrument;
+		}
+	}
+
+	return {};
+}
+
 std::int64_t RESTClient::fetchLastTimestampForDelistedSpotSymbol(const std::string &symbol) const {
 	return m_p->fetchLastTimestampForDelistedSymbol(symbol);
 }
@@ -730,13 +770,21 @@ RESTClient::getOpenOrder(const Category category,
 	std::map<std::string, std::string> parameters;
 	parameters.insert_or_assign("category", magic_enum::enum_name(category));
 	parameters.insert_or_assign("symbol", symbol);
-	parameters.insert_or_assign("orderId", orderId);
-	parameters.insert_or_assign("orderLinkId", orderLinkId);
+
+	/// Empty parameters must not be sent at all - Bybit rejects an empty orderId/orderLinkId value
+	if (!orderId.empty()) {
+		parameters.insert_or_assign("orderId", orderId);
+	}
+
+	if (!orderLinkId.empty()) {
+		parameters.insert_or_assign("orderLinkId", orderLinkId);
+	}
 
     m_p->rateLimiter.wait();
-	if (const auto response = m_p->checkResponse(m_p->httpSession->get(path, parameters)); !handleBybitResponse<
-		OrdersResponse>(response).orders.empty()) {
-		return handleBybitResponse<OrdersResponse>(response).orders.front();
+	const auto response = m_p->checkResponse(m_p->httpSession->get(path, parameters));
+
+	if (auto orders = handleBybitResponse<OrdersResponse>(response).orders; !orders.empty()) {
+		return orders.front();
 	}
 
 	return {};
