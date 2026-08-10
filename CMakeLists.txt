@@ -20,7 +20,7 @@ find_package(nlohmann_json CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
 find_package(magic_enum REQUIRED)
 
-include_directories(include stonky-cpp-common/include SYSTEM ${Boost_INCLUDE_DIR} ${OPENSSL_INCLUDE_DIR})
+include_directories(include SYSTEM ${Boost_INCLUDE_DIR} ${OPENSSL_INCLUDE_DIR})
 
 if (NOT TARGET stonky_common)
     add_subdirectory(stonky-cpp-common)

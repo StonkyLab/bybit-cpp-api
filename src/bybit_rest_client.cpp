@@ -21,6 +21,20 @@ Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@stonky.cz>, Stonky s.r.o.
 #include <boost/multiprecision/cpp_dec_float.hpp>
 
 namespace stonky::bybit {
+namespace {
+std::int64_t nextCandleStart(const std::int64_t openTimestampMs, const CandleInterval interval) {
+    if (interval != CandleInterval::_M) {
+        return openTimestampMs + Bybit::numberOfMsForCandleInterval(interval);
+    }
+
+    using namespace std::chrono;
+    const sys_time<milliseconds> open{milliseconds{openTimestampMs}};
+    const year_month_day current{floor<days>(open)};
+    const year_month_day next = current.year() / current.month() / day{1} + months{1};
+    return duration_cast<milliseconds>(sys_days{next}.time_since_epoch()).count();
+}
+} // namespace
+
 template<typename ValueType>
 ValueType handleBybitResponse(const http::response<http::string_body> &response) {
 	ValueType retVal;
@@ -455,7 +469,7 @@ RESTClient::getHistoricalPrices(const Category category,
 		// Pop the last candle only if its interval overlaps with 'to' — i.e. it is the
 		// current in-progress candle for active symbols.  For delisted symbols whose
 		// last candle lies far in the past this condition is false, so T_last is kept.
-		if (candles.back().startTime + Bybit::numberOfMsForCandleInterval(interval) > to) {
+		if (nextCandleStart(candles.back().startTime, interval) > to) {
 			candles.pop_back();
 		}
 
@@ -480,7 +494,7 @@ RESTClient::getHistoricalPrices(const Category category,
 		}
 
 		retVal.insert(retVal.end(), candles.begin(), candles.end());
-		from = last.startTime + Bybit::numberOfMsForCandleInterval(interval);
+		from = nextCandleStart(last.startTime, interval);
 
 		if (writer) {
 			writer(candles);
