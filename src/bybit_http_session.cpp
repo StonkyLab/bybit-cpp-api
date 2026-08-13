@@ -16,6 +16,8 @@ Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@stonky.cz>, Stonky s.r.o.
 #include <boost/beast/version.hpp>
 #include <openssl/hmac.h>
 #include <spdlog/spdlog.h>
+#include <sys/socket.h>
+#include <sys/time.h>
 #include <atomic>
 #include <limits>
 
@@ -28,6 +30,24 @@ auto API_TESTNET_URI = "api-testnet.bybit.com";
 
 /// How often the local clock is re-synchronized against the exchange clock
 static constexpr std::int64_t TIME_SYNC_INTERVAL_MS = 30 * 60 * 1000;
+
+/// Stall timeout for every blocking socket syscall (connect, TLS handshake,
+/// write, each read). Without it a dead peer/black-holed route blocks the
+/// calling worker for the OS default (minutes) — past funding cutoffs and
+/// scheduler slots the chase deadlines are supposed to protect. Applied per
+/// syscall, so a large-but-flowing archive download never trips it; only a
+/// genuine stall does. Timeouts surface as boost system_errors inside the
+/// request try-block → TransportError (outcome unknown), which is exactly
+/// right: a timed-out order POST may still have been executed.
+static constexpr int IO_STALL_TIMEOUT_S = 15;
+
+namespace {
+void setSocketStallTimeouts(tcp::socket& socket) {
+    const timeval tv{.tv_sec = IO_STALL_TIMEOUT_S, .tv_usec = 0};
+    ::setsockopt(socket.native_handle(), SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+    ::setsockopt(socket.native_handle(), SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
+}
+} // namespace
 
 struct HTTPSession::P {
     net::io_context ioc;
@@ -229,7 +249,36 @@ http::response<http::string_body> HTTPSession::P::request(http::request<http::st
     /// must be able to tell that apart from a rejection, hence the dedicated exception type.
     try {
         auto const results = resolver.resolve(uri, "443");
-        net::connect(stream.next_layer(), results.begin(), results.end());
+
+        /// Manual endpoint loop instead of net::connect: the stall timeouts
+        /// must be set on the OPEN socket before connect so they also bound
+        /// the connect itself (Linux honors SO_SNDTIMEO for blocking connect).
+        auto& socket = stream.next_layer();
+        boost::system::error_code connectEc = net::error::host_not_found;
+
+        for (const auto& entry: results) {
+            boost::system::error_code ec;
+            socket.close(ec);
+            socket.open(entry.endpoint().protocol(), ec);
+
+            if (ec) {
+                connectEc = ec;
+                continue;
+            }
+
+            setSocketStallTimeouts(socket);
+            socket.connect(entry.endpoint(), ec);
+            connectEc = ec;
+
+            if (!ec) {
+                break;
+            }
+        }
+
+        if (connectEc) {
+            throw boost::system::system_error{connectEc};
+        }
+
         stream.handshake(ssl::stream_base::client);
         http::write(stream, req);
         http::read(stream, buffer, parser);

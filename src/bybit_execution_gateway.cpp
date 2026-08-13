@@ -13,6 +13,7 @@ Copyright (c) 2026 Vitezslav Kot <vitezslav.kot@stonky.cz>, Stonky s.r.o.
 #include "stonky/bybit/bybit_ws_stream_manager.h"
 #include <spdlog/spdlog.h>
 #include <algorithm>
+#include <cstdlib>
 #include <map>
 #include <mutex>
 #include <thread>
@@ -44,9 +45,50 @@ std::string toLower(std::string s) {
     return s;
 }
 
-/// Port of the Python reject classifier (live_executor.py on_order_rejected)
-/// extended with the sync REST error strings observed on Bybit V5.
+/// Numeric retCode from the REST error format "Bybit API error, code: N, ..."
+/// (handleBybitResponse). WS reject reasons carry symbolic strings instead
+/// (e.g. "EC_PostOnlyWillTakeLiquidity") — those fall through to text matching.
+std::optional<long> extractRetCode(const std::string &reason) {
+    if (const auto pos = reason.find("code: "); pos != std::string::npos) {
+        return std::strtol(reason.c_str() + pos + 6, nullptr, 10);
+    }
+
+    return std::nullopt;
+}
+
+/// Port of the Python reject classifier (live_executor.py on_order_rejected).
+/// Numeric retCode is the primary key (venue reject STRINGS are not contract
+/// and have drifted before — audit 2026-08-13); the free-text matching remains
+/// as the fallback for WS event reasons, which carry no code.
 RejectKind classifyRejectReason(const std::string &reason) {
+    if (const auto code = extractRetCode(reason)) {
+        switch (*code) {
+            case 30208: /// post-only would cross ("...can only be a maker order")
+                return RejectKind::BenignPostOnlyCross;
+            case 110094: /// "Order does not meet minimum order value"
+                return RejectKind::MinNotional;
+            case 10006: /// "Too many visits!" — venue rate limit. As Hard it
+                /// would count toward the fatal reject cap and resubmit into
+                /// the throttle window (the 510-as-Hard MEXC failure mode).
+                return RejectKind::Throttled;
+            case 110017: /// reduce-only rule not satisfied / qty would truncate
+                /// to zero — the position the reduce targeted is already gone
+                /// (or smaller than the order). Goal met: end the leg cleanly
+                /// instead of looping the same reject to the 20-cap (the MEXC
+                /// 2009/SPELL pattern). A wrong-side reduce cannot reach the
+                /// venue (chase-side guard), and a partial residual is
+                /// re-derived from venue truth by the hourly cleanup.
+                return RejectKind::PositionClosed;
+            case 10029: /// symbol not whitelisted for this API key — no retry
+                /// can ever succeed; live-observed 2026-07-06
+            case 30228: /// delisting — venue refuses new positions
+            case 110087: /// only reduce-only allowed (pre-delist state)
+                return RejectKind::Permanent;
+            default:
+                break; /// unrecognized code → text fallback below
+        }
+    }
+
     const auto r = toLower(reason);
 
     if (r.find("postonly") != std::string::npos || r.find("post only") != std::string::npos || r.find("post-only") != std::string::npos ||
@@ -59,20 +101,11 @@ RejectKind classifyRejectReason(const std::string &reason) {
         return RejectKind::MinNotional;
     }
 
-    /// 10006 "Too many visits!" — venue rate limit. As Hard it would count
-    /// toward the fatal reject cap and resubmit into the throttle window
-    /// (the exact 510-as-Hard failure mode fixed on the MEXC side).
-    if (r.find("code: 10006") != std::string::npos || r.find("too many visits") != std::string::npos || r.find("rate limit") != std::string::npos) {
+    if (r.find("too many visits") != std::string::npos || r.find("rate limit") != std::string::npos) {
         return RejectKind::Throttled;
     }
 
-    /// 110017 "reduce-only rule not satisfied" / "position is zero" — a reduce
-    /// whose position is already gone. Goal met: end the leg cleanly instead of
-    /// looping the same reject to the 20-cap (the MEXC 2009/SPELL pattern). A
-    /// wrong-side reduce cannot reach the venue (chase-side guard), and a
-    /// partial residual is re-derived from venue truth by the hourly cleanup.
-    if (r.find("code: 110017") != std::string::npos || r.find("reduce-only rule") != std::string::npos || r.find("reduce only rule") != std::string::npos ||
-        r.find("position is zero") != std::string::npos) {
+    if (r.find("reduce-only rule") != std::string::npos || r.find("reduce only rule") != std::string::npos || r.find("position is zero") != std::string::npos) {
         return RejectKind::PositionClosed;
     }
 
@@ -82,9 +115,6 @@ RejectKind classifyRejectReason(const std::string &reason) {
         /// "position idx not match position mode" = account not in one-way mode —
         /// a config error affecting EVERY order; burning the backoff ladder on it
         /// would eat the whole chase window instead of failing fast.
-        /// 10029 "symbol is not whitelisted" = the API key cannot trade this
-        /// symbol at all (key symbol restriction, pre-market perp) — no retry
-        /// can ever succeed; live-observed 2026-07-06.
         return RejectKind::Permanent;
     }
 
@@ -94,6 +124,17 @@ RejectKind classifyRejectReason(const std::string &reason) {
 /// Venue responses to cancel/amend of an order that already left the book —
 /// not failures from the chase core's perspective.
 bool isOrderGoneReason(const std::string &reason) {
+    if (const auto code = extractRetCode(reason)) {
+        switch (*code) {
+            case 110001: /// order does not exist
+            case 110008: /// order already finished
+            case 110010: /// order already cancelled
+                return true;
+            default:
+                break;
+        }
+    }
+
     const auto r = toLower(reason);
     return r.find("order not exists") != std::string::npos || r.find("too late") != std::string::npos || r.find("order does not exist") != std::string::npos ||
            r.find("110001") != std::string::npos;
@@ -140,6 +181,20 @@ struct BybitExecutionGateway::P {
     static OrderSide toSide(const Side side) { return side == Side::Buy ? OrderSide::Buy : OrderSide::Sell; }
 
     static Side fromSide(const OrderSide side) { return side == OrderSide::Buy ? Side::Buy : Side::Sell; }
+
+    /// Health gate for operations that CREATE exposure. The private stream is
+    /// the only fill/order event source and Bybit does not replay a reconnect
+    /// gap — an order submitted (or re-priced) while unauthenticated could
+    /// fill with nobody listening. Throttled classification: the chase core
+    /// backs off and retries without burning its fatal-reject cap, and resumes
+    /// the moment the stream re-authenticates. cancel() is deliberately NOT
+    /// gated — cancelling reduces exposure, and its order-gone path already
+    /// reconciles missed fills from REST.
+    void requireEventStream(const char *op) const {
+        if (!privateStream->isAuthenticated()) {
+            throw GatewayError(RejectKind::Throttled, fmt::format("Bybit private stream not authenticated — {} gated until reconnect (fills would be lost)", op));
+        }
+    }
 
     /// The venue reported an order gone at cancel time — "gone" can mean FILLED.
     /// If the private WS dropped that fill during a reconnect gap, the core's
@@ -393,6 +448,8 @@ void BybitExecutionGateway::submitPostOnlyLimit(const std::string &clientOrderId
     order.orderLinkId = clientOrderId;
     order.positionIdx = 0; /// one-way mode required
 
+    m_p->requireEventStream("submit");
+
     try {
         [[maybe_unused]] const auto orderId = m_p->restClient->placeOrder(order);
     } catch (TransportError &) {
@@ -413,6 +470,8 @@ void BybitExecutionGateway::submitPostOnlyLimit(const std::string &clientOrderId
 bool BybitExecutionGateway::supportsAmend() const { return true; }
 
 void BybitExecutionGateway::amendPrice(const std::string &clientOrderId, const std::string &symbol, const double price) {
+    m_p->requireEventStream("amend");
+
     try {
         [[maybe_unused]] const auto orderId = m_p->restClient->amendOrder(Category::linear, symbol, "", clientOrderId, price);
     } catch (TransportError &) {
