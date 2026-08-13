@@ -534,24 +534,43 @@ std::int64_t RESTClient::getServerTime() const {
 
 std::vector<Position> RESTClient::getPositionInfo(const Category category, const std::string &symbol, const std::string &settleCoin) const {
 	const std::string path = "/v5/position/list";
-	std::map<std::string, std::string> parameters;
 
-	parameters.insert_or_assign("category", magic_enum::enum_name(category));
+	// Bybit pages this endpoint (default 20, max 200) — a book of 2×10 legs
+	// plus a single straggler already overflows the default page, and a
+	// silently-missing position corrupts every caller that treats the snapshot
+	// as venue truth. Any page failure throws, so the caller never sees a
+	// partial book.
+	std::vector<Position> positions;
+	std::string cursor;
 
-	if (!symbol.empty()) {
-		parameters.insert_or_assign("symbol", symbol);
-	}
+	do {
+		std::map<std::string, std::string> parameters;
+		parameters.insert_or_assign("category", magic_enum::enum_name(category));
+		parameters.insert_or_assign("limit", "200");
 
-	// Linear/inverse require symbol OR settleCoin OR baseCoin when listing all
-	// positions; without one Bybit returns retCode 10001 ("Missing some
-	// parameters that must be filled in, symbol or settleCoin").
-	if (!settleCoin.empty()) {
-		parameters.insert_or_assign("settleCoin", settleCoin);
-	}
+		if (!symbol.empty()) {
+			parameters.insert_or_assign("symbol", symbol);
+		}
 
-    m_p->rateLimiter.wait();
-	const auto response = m_p->checkResponse(m_p->httpSession->get(path, parameters));
-	return handleBybitResponse<Positions>(response).positions;
+		// Linear/inverse require symbol OR settleCoin OR baseCoin when listing all
+		// positions; without one Bybit returns retCode 10001 ("Missing some
+		// parameters that must be filled in, symbol or settleCoin").
+		if (!settleCoin.empty()) {
+			parameters.insert_or_assign("settleCoin", settleCoin);
+		}
+
+		if (!cursor.empty()) {
+			parameters.insert_or_assign("cursor", cursor);
+		}
+
+		m_p->rateLimiter.wait();
+		const auto response = m_p->checkResponse(m_p->httpSession->get(path, parameters));
+		auto page = handleBybitResponse<Positions>(response);
+		positions.insert(positions.end(), page.positions.begin(), page.positions.end());
+		cursor = page.nextPageCursor;
+	} while (!cursor.empty());
+
+	return positions;
 }
 
 std::vector<Instrument>

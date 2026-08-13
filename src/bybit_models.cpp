@@ -203,6 +203,7 @@ nlohmann::json Positions::toJson() const {
 void Positions::fromJson(const nlohmann::json& json) {
     Response::fromJson(json);
     readMagicEnum<Category>(result, "category", category);
+    readValue<std::string>(result, "nextPageCursor", nextPageCursor);
 
     for (const auto& el : result["list"].items()) {
         Position position;

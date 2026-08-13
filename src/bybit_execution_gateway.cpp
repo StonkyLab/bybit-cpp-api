@@ -7,6 +7,7 @@ Copyright (c) 2026 Vitezslav Kot <vitezslav.kot@stonky.cz>, Stonky s.r.o.
 */
 
 #include "stonky/bybit/bybit_execution_gateway.h"
+#include "stonky/bybit/bybit_http_session.h"
 #include "stonky/bybit/bybit_rest_client.h"
 #include "stonky/bybit/bybit_ws_private_stream_manager.h"
 #include "stonky/bybit/bybit_ws_stream_manager.h"
@@ -96,6 +97,18 @@ bool isOrderGoneReason(const std::string &reason) {
     const auto r = toLower(reason);
     return r.find("order not exists") != std::string::npos || r.find("too late") != std::string::npos || r.find("order does not exist") != std::string::npos ||
            r.find("110001") != std::string::npos;
+}
+
+/// Server-side responses whose outcome is UNKNOWN — Bybit may have executed the
+/// request despite answering with an error. retCode 10000 "Server Timeout" and
+/// 10016 "Server error" arrive as valid API responses; HTTP 5xx ("Bad response,
+/// code 5xx" from checkResponse) never carries a retCode at all. None of them
+/// prove the order does NOT exist, so they must not become a definitive
+/// GatewayError reject — the chase core's non-GatewayError path safety-cancels
+/// and reconciles instead.
+bool isAmbiguousOutcomeReason(const std::string &reason) {
+    const auto r = toLower(reason);
+    return r.find("code: 10000") != std::string::npos || r.find("code: 10016") != std::string::npos || r.find("bad response, code 5") != std::string::npos;
 }
 } // namespace
 
@@ -375,7 +388,17 @@ void BybitExecutionGateway::submitPostOnlyLimit(const std::string &clientOrderId
 
     try {
         [[maybe_unused]] const auto orderId = m_p->restClient->placeOrder(order);
+    } catch (TransportError &) {
+        /// Outcome UNKNOWN — the order may rest on the venue although we never
+        /// saw the ack. Propagate untouched: GatewayError means "the venue
+        /// definitively rejected this", and on that the chase core deletes the
+        /// route; here it must instead keep the route and safety-cancel.
+        throw;
     } catch (std::exception &e) {
+        if (isAmbiguousOutcomeReason(e.what())) {
+            throw; /// server-side timeout/5xx — same unknown-outcome contract as TransportError
+        }
+
         throw GatewayError(classifyRejectReason(e.what()), e.what());
     }
 }
@@ -385,7 +408,16 @@ bool BybitExecutionGateway::supportsAmend() const { return true; }
 void BybitExecutionGateway::amendPrice(const std::string &clientOrderId, const std::string &symbol, const double price) {
     try {
         [[maybe_unused]] const auto orderId = m_p->restClient->amendOrder(Category::linear, symbol, "", clientOrderId, price);
+    } catch (TransportError &) {
+        /// Outcome UNKNOWN — the order may now rest at either price. Propagate
+        /// untouched; the core's amend-failure path cancels the order, which
+        /// resolves the ambiguity either way.
+        throw;
     } catch (std::exception &e) {
+        if (isAmbiguousOutcomeReason(e.what())) {
+            throw;
+        }
+
         throw GatewayError(classifyRejectReason(e.what()), e.what());
     }
 }
@@ -395,6 +427,11 @@ bool BybitExecutionGateway::cancel(const std::string &clientOrderId, const std::
         const auto orderId = m_p->restClient->cancelOrder(Category::linear, symbol, "", clientOrderId);
         spdlog::debug("BybitGW cancel ack: {} linkId={} orderId={}", symbol, clientOrderId, orderId.orderId);
         return true;
+    } catch (TransportError &) {
+        /// Outcome UNKNOWN — the cancel may or may not have reached the venue.
+        /// Propagate untouched so the core keeps the order pending and retries,
+        /// instead of reading a definitive venue answer into a network fault.
+        throw;
     } catch (std::exception &e) {
         if (isOrderGoneReason(e.what())) {
             spdlog::debug("BybitGW cancel — order already gone: {} linkId={} ({})", symbol, clientOrderId, e.what());
@@ -403,6 +440,10 @@ bool BybitExecutionGateway::cancel(const std::string &clientOrderId, const std::
             /// from REST before reporting the order gone.
             m_p->reconcileMissedFills(clientOrderId, symbol);
             return false; /// terminal event already delivered (or lost) — do not wait for one
+        }
+
+        if (isAmbiguousOutcomeReason(e.what())) {
+            throw;
         }
 
         throw GatewayError(classifyRejectReason(e.what()), e.what());
@@ -423,7 +464,16 @@ void BybitExecutionGateway::submitReduceOnlyMarket(const std::string &clientOrde
 
     try {
         [[maybe_unused]] const auto orderId = m_p->restClient->placeOrder(order);
+    } catch (TransportError &) {
+        /// Outcome UNKNOWN — a market IOC may have executed without the ack.
+        /// Propagate untouched; the caller must verify the position instead of
+        /// re-sending the close on a supposed reject.
+        throw;
     } catch (std::exception &e) {
+        if (isAmbiguousOutcomeReason(e.what())) {
+            throw;
+        }
+
         throw GatewayError(classifyRejectReason(e.what()), e.what());
     }
 }

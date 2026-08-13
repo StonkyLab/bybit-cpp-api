@@ -180,6 +180,7 @@ struct Position final : IJson {
 struct Positions final : Response {
     Category category{Category::linear};
     std::vector<Position> positions{};
+    std::string nextPageCursor{};
 
     [[nodiscard]] nlohmann::json toJson() const override;
 
