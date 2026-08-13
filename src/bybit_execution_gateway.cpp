@@ -113,7 +113,10 @@ bool isAmbiguousOutcomeReason(const std::string &reason) {
 } // namespace
 
 struct BybitExecutionGateway::P {
-    std::unique_ptr<RESTClient> restClient;
+    /// shared_ptr (not unique): the public WS stream manager holds a weak_ptr
+    /// for its REST quote fallback (readEventTicker refreshes a stale ticker
+    /// from REST when the stream goes silent).
+    std::shared_ptr<RESTClient> restClient;
     std::unique_ptr<WSPrivateStreamManager> privateStream;
     std::unique_ptr<WSStreamManager> publicStream;
 
@@ -194,7 +197,7 @@ struct BybitExecutionGateway::P {
 };
 
 BybitExecutionGateway::BybitExecutionGateway(const std::string &apiKey, const std::string &apiSecret, const Environment env) : m_p(std::make_unique<P>()) {
-    m_p->restClient = std::make_unique<RESTClient>(apiKey, apiSecret, env);
+    m_p->restClient = std::make_shared<RESTClient>(apiKey, apiSecret, env);
     m_p->privateStream = std::make_unique<WSPrivateStreamManager>(apiKey, apiSecret, env);
     m_p->publicStream = std::make_unique<WSStreamManager>();
 
@@ -203,6 +206,10 @@ BybitExecutionGateway::BybitExecutionGateway(const std::string &apiKey, const st
     /// Bound the blocking window of readEventTicker when a symbol has no data
     /// yet; the chase core polls, it must not hang for the default 5 s.
     m_p->publicStream->setTimeout(1);
+    /// Wire the REST quote fallback: with a stale/silent ticker stream,
+    /// readEventTicker refreshes the cached quote from REST instead of
+    /// reporting nothing until the stream recovers.
+    m_p->publicStream->setRestClient(m_p->restClient);
 
     m_p->publicStream->setTickerUpdateCallback([this](const EventTicker &ticker) {
         if (m_p->quoteCB) {
@@ -476,6 +483,30 @@ void BybitExecutionGateway::submitReduceOnlyMarket(const std::string &clientOrde
 
         throw GatewayError(classifyRejectReason(e.what()), e.what());
     }
+}
+
+int BybitExecutionGateway::cancelStrayOrders(const std::string &clientOrderIdPrefix, const std::string &settleCoin) {
+    int cancelled = 0;
+
+    for (const auto &order: m_p->restClient->getOpenOrders(Category::linear, "", settleCoin)) {
+        if (!order.orderLinkId.starts_with(clientOrderIdPrefix)) {
+            continue; /// manual or other strategies' orders on a shared account are not ours to touch
+        }
+
+        spdlog::warn("BybitGW: stray order from a previous run — cancelling {} linkId={} qty={} px={}", order.symbol, order.orderLinkId, order.qty, order.price);
+
+        try {
+            /// cancel() handles "already gone" (reconciles fills from REST) and
+            /// classifies real failures; a stray we cannot cancel is rethrown —
+            /// the caller must not report a clean venue.
+            cancel(order.orderLinkId, order.symbol);
+            ++cancelled;
+        } catch (GatewayError &e) {
+            throw GatewayError(e.kind, fmt::format("stray order {} on {} could not be cancelled: {}", order.orderLinkId, order.symbol, e.what()));
+        }
+    }
+
+    return cancelled;
 }
 
 } // namespace stonky::execution

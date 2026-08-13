@@ -63,6 +63,22 @@ public:
     bool cancel(const std::string &clientOrderId, const std::string &symbol) override;
 
     void submitReduceOnlyMarket(const std::string &clientOrderId, const std::string &symbol, OrderSide side, double qty) override;
+
+    /**
+     * Startup orphan recovery: cancel every open linear order whose client
+     * order id starts with the given prefix (this bot's orders — a crash,
+     * SIGKILL or lost ack can leave them resting). Orders without the prefix
+     * (manual, other strategies on a shared account) are never touched.
+     * Call after start(); the private stream then delivers the Cancelled
+     * events, and the cancel path's REST reconciliation covers fills that
+     * landed while nobody was listening.
+     * @param clientOrderIdPrefix e.g. "dc-"
+     * @param settleCoin e.g. USDT — scopes the open-orders listing
+     * @return number of cancels submitted
+     * @throws on REST failure — the caller must not proceed as if the venue
+     *         were clean
+     */
+    int cancelStrayOrders(const std::string &clientOrderIdPrefix, const std::string &settleCoin);
 };
 
 } // namespace stonky::execution

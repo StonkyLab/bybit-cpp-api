@@ -420,6 +420,7 @@ void OrdersResponse::fromJson(const nlohmann::json& json) {
     Response::fromJson(json);
 
     readMagicEnum<Category>(result, "category", category);
+    readValue<std::string>(result, "nextPageCursor", nextPageCursor);
 
     for (const auto& el : result["list"].items()) {
         OrderResponse orderResponse;

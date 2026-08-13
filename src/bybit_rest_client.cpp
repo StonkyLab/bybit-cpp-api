@@ -783,15 +783,40 @@ OrderId RESTClient::amendOrder(const Category category,
 	return handleBybitResponse<OrderId>(response);
 }
 
-std::vector<OrderResponse> RESTClient::getOpenOrders(const Category category, const std::string &symbol) const {
+std::vector<OrderResponse> RESTClient::getOpenOrders(const Category category, const std::string &symbol, const std::string &settleCoin) const {
 	const std::string path = "/v5/order/realtime";
-	std::map<std::string, std::string> parameters;
-	parameters.insert_or_assign("category", magic_enum::enum_name(category));
-	parameters.insert_or_assign("symbol", symbol);
 
-    m_p->rateLimiter.wait();
-	const auto response = m_p->checkResponse(m_p->httpSession->get(path, parameters));
-	return handleBybitResponse<OrdersResponse>(response).orders;
+	// Bybit pages this endpoint (default 20, max 50) — iterate the cursor so a
+	// caller sweeping stray orders sees ALL of them. A page failure throws;
+	// partial data is never returned.
+	std::vector<OrderResponse> orders;
+	std::string cursor;
+
+	do {
+		std::map<std::string, std::string> parameters;
+		parameters.insert_or_assign("category", magic_enum::enum_name(category));
+		parameters.insert_or_assign("limit", "50");
+
+		if (!symbol.empty()) {
+			parameters.insert_or_assign("symbol", symbol);
+		}
+
+		if (!settleCoin.empty()) {
+			parameters.insert_or_assign("settleCoin", settleCoin);
+		}
+
+		if (!cursor.empty()) {
+			parameters.insert_or_assign("cursor", cursor);
+		}
+
+		m_p->rateLimiter.wait();
+		const auto response = m_p->checkResponse(m_p->httpSession->get(path, parameters));
+		auto page = handleBybitResponse<OrdersResponse>(response);
+		orders.insert(orders.end(), page.orders.begin(), page.orders.end());
+		cursor = page.nextPageCursor;
+	} while (!cursor.empty());
+
+	return orders;
 }
 
 std::optional<OrderResponse>
