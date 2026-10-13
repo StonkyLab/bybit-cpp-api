@@ -20,7 +20,7 @@ find_package(nlohmann_json CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
 find_package(magic_enum REQUIRED)
 
-include_directories(include stonky-cpp-common/include SYSTEM ${Boost_INCLUDE_DIR} ${OPENSSL_INCLUDE_DIR})
+include_directories(include SYSTEM ${Boost_INCLUDE_DIR} ${OPENSSL_INCLUDE_DIR})
 
 if (NOT TARGET stonky_common)
     add_subdirectory(stonky-cpp-common)
@@ -80,4 +80,7 @@ if (ENABLE_TESTS)
     target_link_libraries(bybit_exec_probe PRIVATE spdlog::spdlog_header_only bybit_api)
 endif ()
 
-target_link_libraries(bybit_api PRIVATE spdlog::spdlog_header_only OpenSSL::Crypto OpenSSL::SSL ZLIB::ZLIB stonky_common nlohmann_json::nlohmann_json)
+# stonky_common is PUBLIC on purpose: the public headers of this library include stonky/interface and
+# stonky/utils headers, so every consumer needs its include directories, not just this target.
+target_link_libraries(bybit_api PRIVATE spdlog::spdlog_header_only OpenSSL::Crypto OpenSSL::SSL ZLIB::ZLIB nlohmann_json::nlohmann_json)
+target_link_libraries(bybit_api PUBLIC stonky_common)

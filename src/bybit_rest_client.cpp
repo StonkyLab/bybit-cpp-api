@@ -9,6 +9,7 @@ Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@stonky.cz>, Stonky s.r.o.
 #include "stonky/bybit/bybit_rest_client.h"
 #include "stonky/bybit/bybit_http_session.h"
 #include "stonky/bybit/bybit.h"
+#include "stonky/utils/json_utils.h"
 #include "stonky/utils/utils.h"
 #include <mutex>
 #include <thread>
@@ -21,14 +22,52 @@ Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@stonky.cz>, Stonky s.r.o.
 #include <boost/multiprecision/cpp_dec_float.hpp>
 
 namespace stonky::bybit {
+namespace {
+std::int64_t nextCandleStart(const std::int64_t openTimestampMs, const CandleInterval interval) {
+    if (interval != CandleInterval::_M) {
+        return openTimestampMs + Bybit::numberOfMsForCandleInterval(interval);
+    }
+
+    using namespace std::chrono;
+    const sys_time<milliseconds> open{milliseconds{openTimestampMs}};
+    const year_month_day current{floor<days>(open)};
+    const year_month_day next = current.year() / current.month() / day{1} + months{1};
+    return duration_cast<milliseconds>(sys_days{next}.time_since_epoch()).count();
+}
+} // namespace
+
+/// Bybit answers whose outcome is UNKNOWN - the request may still have been executed. Same set that the execution
+/// gateway recognizes by message text in isAmbiguousOutcomeReason(); the typed exception lets callers that do not
+/// go through the gateway (the Zorro plugin) catch it without matching strings. Keep the two in sync, and never
+/// change the wording of the messages below - the gateway parses it.
+static bool isExecutionUnknownCode(const int retCode) {
+	/// 10000 server timeout, 10016 internal server error, 170007 timeout waiting for the backend
+	return retCode == 10000 || retCode == 10016 || retCode == 170007;
+}
+
+/// The one answer that settles the question instead of leaving it open: the venue does not know the order
+static bool isOrderNotFoundCode(const int retCode) {
+	/// 110001 order does not exist (derivatives), 170213 the same for spot
+	return retCode == 110001 || retCode == 170213;
+}
+
 template<typename ValueType>
 ValueType handleBybitResponse(const http::response<http::string_body> &response) {
 	ValueType retVal;
 	retVal.fromJson(nlohmann::json::parse(response.body()));
 
 	if (retVal.retCode != 0) {
-		throw std::runtime_error(
-			fmt::format("Bybit API error, code: {}, msg: {}", retVal.retCode, retVal.retMsg).c_str());
+		const auto msg = fmt::format("Bybit API error, code: {}, msg: {}", retVal.retCode, retVal.retMsg);
+
+		if (isExecutionUnknownCode(retVal.retCode)) {
+			throw ExecutionUnknown(msg);
+		}
+
+		if (isOrderNotFoundCode(retVal.retCode)) {
+			throw OrderNotFound(msg);
+		}
+
+		throw std::runtime_error(msg);
 	}
 
 	return retVal;
@@ -121,8 +160,32 @@ private:
 public:
 	RESTClient *parent = nullptr;
 	std::string host; /// REST host per Environment; empty = mainnet default
-	std::shared_ptr<HTTPSession> httpSession;
-	mutable std::shared_ptr<HTTPSession> publicHttpSession;
+	/// Replaced by setCredentials (and, for the public one, by the download retries) while other threads may be
+	/// issuing requests. A plain shared_ptr would be read and reassigned concurrently - a data race, and with the
+	/// reset() that preceded the assignment even a window with a null pointer.
+	std::atomic<std::shared_ptr<HTTPSession> > httpSession;
+	mutable std::atomic<std::shared_ptr<HTTPSession> > publicHttpSession;
+
+	[[nodiscard]] std::shared_ptr<HTTPSession> session() const {
+		auto current = httpSession.load();
+
+		if (!current) {
+			throw std::runtime_error("Bybit REST session is not initialized");
+		}
+
+		return current;
+	}
+
+	[[nodiscard]] std::shared_ptr<HTTPSession> publicSession() const {
+		auto current = publicHttpSession.load();
+
+		if (!current) {
+			throw std::runtime_error("Bybit public REST session is not initialized");
+		}
+
+		return current;
+	}
+
 	mutable RateLimiter rateLimiter;
 
 	explicit P(RESTClient *parent) {
@@ -187,7 +250,7 @@ public:
 		constexpr int maxRetries = 3;
 		for (int attempt = 0; attempt < maxRetries; ++attempt) {
 			try {
-				const auto dirResponse = publicHttpSession->get("/spot/" + symbol + "/", {});
+				const auto dirResponse = publicSession()->get("/spot/" + symbol + "/", {});
 				const std::string &body = dirResponse.body();
 				// Files are named e.g. VRAUSDT_2026-02-18.csv.gz
 				const std::regex fileRegex(symbol + R"re(_(\d{4}-\d{2}-\d{2})\.csv\.gz)re");
@@ -204,7 +267,7 @@ public:
 				if (latestFilename.empty()) {
 					return 0;
 				}
-				const auto fileResponse = publicHttpSession->get(
+				const auto fileResponse = publicSession()->get(
 					"/spot/" + symbol + "/" + latestFilename, {});
 				const std::string decompressed = decompressGzip(fileResponse.body());
 				return lastCsvTimestamp(decompressed);
@@ -228,7 +291,7 @@ public:
 		constexpr int maxRetries = 3;
 		for (int attempt = 0; attempt < maxRetries; ++attempt) {
 			try {
-				const auto response = publicHttpSession->get("/spot/", {});
+				const auto response = publicSession()->get("/spot/", {});
 				const std::string &body = response.body();
 				std::vector<std::string> symbols;
 				const std::regex linkRegex(R"re(href="([A-Z0-9]+)")re");
@@ -254,6 +317,25 @@ public:
 	[[nodiscard]] Instruments getInstruments() const {
 		std::lock_guard lk(m_locker);
 		return m_instruments;
+	}
+
+	/// Lightweight lookup - the instrument list holds several hundred entries, copying all of them just to read one
+	/// symbol is needlessly expensive on the hot path (BrokerAsset runs for every asset on every tick)
+	[[nodiscard]] std::optional<Instrument> findInstrument(const std::string &symbol) const {
+		std::lock_guard lk(m_locker);
+
+		for (const auto &instrument: m_instruments.instruments) {
+			if (instrument.symbol == symbol) {
+				return instrument;
+			}
+		}
+
+		return {};
+	}
+
+	[[nodiscard]] bool areInstrumentsEmpty() const {
+		std::lock_guard lk(m_locker);
+		return m_instruments.instruments.empty();
 	}
 
 	void setInstruments(const Instruments &instruments) {
@@ -296,24 +378,38 @@ public:
         rateLimiter.update(response);
 
 		if (response.result() != http::status::ok) {
-			throw std::runtime_error(
-				fmt::format("Bad response, code {}, msg: {}", response.result_int(), response.body()).c_str());
+			const auto msg = fmt::format("Bad response, code {}, msg: {}", response.result_int(), response.body());
+
+			/// The 5xx family means the exchange had a problem after receiving the request - the outcome is unknown
+			if (response.result_int() >= 500) {
+				throw ExecutionUnknown(msg);
+			}
+
+			throw std::runtime_error(msg);
 		}
 		return response;
 	}
 
+	/// @param endTime  0 leaves the request open-ended. A positive value anchors
+	///                 the venue's fixed window at it: the response is the newest
+	///                 `limit` candles at or before endTime, which is what makes
+	///                 probing an empty stretch possible (see the public overload).
 	[[nodiscard]] std::vector<Candle>
 	getHistoricalPrices(const Category category,
 	                    const std::string &symbol,
 	                    const CandleInterval interval,
 	                    const std::int64_t startTime,
-	                    const std::int32_t limit) const {
+	                    const std::int32_t limit,
+	                    const std::int64_t endTime = 0) const {
 		const std::string path = "/v5/market/kline";
 		std::map<std::string, std::string> parameters;
 		parameters.insert_or_assign("category", magic_enum::enum_name(category));
 		parameters.insert_or_assign("symbol", symbol);
 		parameters.insert_or_assign("interval", magic_enum::enum_name(interval));
 		parameters.insert_or_assign("start", std::to_string(startTime));
+		if (endTime > 0) {
+			parameters.insert_or_assign("end", std::to_string(endTime));
+		}
 
 		if (limit != 200) {
 			parameters.insert_or_assign("limit", std::to_string(limit));
@@ -322,7 +418,7 @@ public:
         // Wait if rate limited
         rateLimiter.wait();
 
-		const auto response = checkResponse(httpSession->get(path, parameters));
+		const auto response = checkResponse(session()->get(path, parameters));
 		return handleBybitResponse<Candles>(response).candles;
 	}
 
@@ -345,7 +441,7 @@ public:
         // Wait if rate limited
         rateLimiter.wait();
 
-		const auto response = checkResponse(httpSession->get(path, parameters));
+		const auto response = checkResponse(session()->get(path, parameters));
 		return handleBybitResponse<FundingRates>(response).fundingRates;
 	}
 
@@ -371,7 +467,7 @@ public:
         // Wait if rate limited
         rateLimiter.wait();
 
-		const auto response = checkResponse(httpSession->get(path, parameters));
+		const auto response = checkResponse(session()->get(path, parameters));
 		return handleBybitResponse<Instruments>(response);
 	}
 };
@@ -399,7 +495,7 @@ RESTClient::RESTClient(const std::string &apiKey, const std::string &apiSecret, 
 RESTClient::~RESTClient() = default;
 
 void RESTClient::setCredentials(const std::string &apiKey, const std::string &apiSecret) const {
-	m_p->httpSession.reset();
+	/// Single atomic swap - a request already in flight keeps the old session alive through its own shared_ptr copy
 	m_p->httpSession = std::make_shared<HTTPSession>(apiKey, apiSecret, m_p->host);
 }
 
@@ -418,14 +514,44 @@ RESTClient::getHistoricalPrices(const Category category,
 
 		std::ranges::reverse(candles);
 
-		// For delisted spot symbols, Bybit ignores the 'start' parameter and always
-		// returns its fixed last-N-candles window.  When the batch therefore starts
-		// before 'from', we have two cases:
-		//  a) The batch is entirely before 'from' — no new data, stop.
-		//  b) The batch straddles 'from' — discard the stale prefix and continue.
+		// When no candle exists at or after 'start', Bybit does not answer with an
+		// empty list: it returns its fixed window of the newest candles BEFORE
+		// 'start' instead. A batch that starts before 'from' therefore has two
+		// cases:
+		//  a) The batch straddles 'from' — discard the stale prefix and continue.
+		//  b) The batch is entirely before 'from'. That is the end of the history
+		//     for a delisted symbol — but it is also what a symbol that was
+		//     delisted and later relisted looks like when 'from' sits in the gap
+		//     between its two listings: SHIBUSDT's first listing ends 2021-11-29,
+		//     the second starts 2021-12-07, and every 'start' in between draws the
+		//     2021-11-29 window. Reading that as "no new data" froze the 1m history
+		//     of every relisted symbol at its first delisting for good (SHIB, LUNC,
+		//     USTC, ZKJ, GRAM). Probe forward instead: 'end' anchors the venue's
+		//     window, so a request for [from, from + limit intervals] answers with
+		//     everything in that window or with the pre-gap window again. An
+		//     empty window is skipped whole; the first window holding data is
+		//     complete by construction, because it is at most 'limit' wide.
 		if (candles.front().startTime < from) {
 			if (candles.back().startTime < from) {
-				break; // Entire batch predates 'from'; no new data available.
+				// limit - 1 intervals: [from, windowEnd] is inclusive, so this is exactly
+				// 'limit' slots and a full window still fits one response.
+				const auto windowMs = static_cast<std::int64_t>(limit - 1) * Bybit::numberOfMsForCandleInterval(interval);
+				// Only the requested end bounds the scan: even a long empty stretch
+				// can be followed by a relisting, so a probe count cannot prove EOF.
+				bool found = false;
+				while (from <= to) {
+					const auto windowEnd = std::min(to, from + windowMs);
+					candles = m_p->getHistoricalPrices(category, symbol, interval, from, limit, windowEnd);
+					std::ranges::reverse(candles);
+					if (!candles.empty() && candles.back().startTime >= from) {
+						found = true;
+						break;
+					}
+					from = windowEnd + 1; // window proven empty, step past it
+				}
+				if (!found) {
+					break; // Nothing at or after 'from' anywhere up to 'to'.
+				}
 			}
 			// Trim candles that predate 'from'.
 			const auto firstValid = std::lower_bound(candles.begin(), candles.end(), from,
@@ -436,7 +562,7 @@ RESTClient::getHistoricalPrices(const Category category,
 		// Pop the last candle only if its interval overlaps with 'to' — i.e. it is the
 		// current in-progress candle for active symbols.  For delisted symbols whose
 		// last candle lies far in the past this condition is false, so T_last is kept.
-		if (candles.back().startTime + Bybit::numberOfMsForCandleInterval(interval) > to) {
+		if (nextCandleStart(candles.back().startTime, interval) > to) {
 			candles.pop_back();
 		}
 
@@ -461,7 +587,7 @@ RESTClient::getHistoricalPrices(const Category category,
 		}
 
 		retVal.insert(retVal.end(), candles.begin(), candles.end());
-		from = last.startTime + Bybit::numberOfMsForCandleInterval(interval);
+		from = nextCandleStart(last.startTime, interval);
 
 		if (writer) {
 			writer(candles);
@@ -484,7 +610,7 @@ WalletBalance RESTClient::getWalletBalance(const AccountType accountType, const 
 	}
 
     m_p->rateLimiter.wait();
-	const auto response = m_p->checkResponse(m_p->httpSession->get(path, parameters));
+	const auto response = m_p->checkResponse(m_p->session()->get(path, parameters));
 	return handleBybitResponse<WalletBalance>(response);
 }
 
@@ -493,7 +619,7 @@ std::int64_t RESTClient::getServerTime() const {
 	const std::map<std::string, std::string> parameters;
 
     m_p->rateLimiter.wait();
-	const auto response = m_p->checkResponse(m_p->httpSession->get(path, parameters));
+	const auto response = m_p->checkResponse(m_p->session()->get(path, parameters));
 	const auto timeResponse = handleBybitResponse<ServerTime>(response);
 
 	return timeResponse.timeNano / 1000000;
@@ -501,24 +627,43 @@ std::int64_t RESTClient::getServerTime() const {
 
 std::vector<Position> RESTClient::getPositionInfo(const Category category, const std::string &symbol, const std::string &settleCoin) const {
 	const std::string path = "/v5/position/list";
-	std::map<std::string, std::string> parameters;
 
-	parameters.insert_or_assign("category", magic_enum::enum_name(category));
+	// Bybit pages this endpoint (default 20, max 200) — a book of 2×10 legs
+	// plus a single straggler already overflows the default page, and a
+	// silently-missing position corrupts every caller that treats the snapshot
+	// as venue truth. Any page failure throws, so the caller never sees a
+	// partial book.
+	std::vector<Position> positions;
+	std::string cursor;
 
-	if (!symbol.empty()) {
-		parameters.insert_or_assign("symbol", symbol);
-	}
+	do {
+		std::map<std::string, std::string> parameters;
+		parameters.insert_or_assign("category", magic_enum::enum_name(category));
+		parameters.insert_or_assign("limit", "200");
 
-	// Linear/inverse require symbol OR settleCoin OR baseCoin when listing all
-	// positions; without one Bybit returns retCode 10001 ("Missing some
-	// parameters that must be filled in, symbol or settleCoin").
-	if (!settleCoin.empty()) {
-		parameters.insert_or_assign("settleCoin", settleCoin);
-	}
+		if (!symbol.empty()) {
+			parameters.insert_or_assign("symbol", symbol);
+		}
 
-    m_p->rateLimiter.wait();
-	const auto response = m_p->checkResponse(m_p->httpSession->get(path, parameters));
-	return handleBybitResponse<Positions>(response).positions;
+		// Linear/inverse require symbol OR settleCoin OR baseCoin when listing all
+		// positions; without one Bybit returns retCode 10001 ("Missing some
+		// parameters that must be filled in, symbol or settleCoin").
+		if (!settleCoin.empty()) {
+			parameters.insert_or_assign("settleCoin", settleCoin);
+		}
+
+		if (!cursor.empty()) {
+			parameters.insert_or_assign("cursor", cursor);
+		}
+
+		m_p->rateLimiter.wait();
+		const auto response = m_p->checkResponse(m_p->session()->get(path, parameters));
+		auto page = handleBybitResponse<Positions>(response);
+		positions.insert(positions.end(), page.positions.begin(), page.positions.end());
+		cursor = page.nextPageCursor;
+	} while (!cursor.empty());
+
+	return positions;
 }
 
 std::vector<Instrument>
@@ -597,6 +742,27 @@ RESTClient::getInstrumentsInfo(const Category category, const std::string &symbo
 	return m_p->getInstruments().instruments;
 }
 
+std::optional<Instrument> RESTClient::getInstrumentInfo(const Category category, const std::string &symbol) const {
+	if (m_p->areInstrumentsEmpty()) {
+		/// Primes the shared cache with the full universe
+		static_cast<void>(getInstrumentsInfo(category));
+	}
+
+	if (auto instrument = m_p->findInstrument(symbol)) {
+		return instrument;
+	}
+
+	/// Cache miss - a market listed after the cache was primed. Symbol filtered fetch, deliberately no cache side
+	/// effect (a subset in the shared cache would poison the lookup for every other symbol).
+	for (const auto &instrument: getInstrumentsInfo(category, symbol, true)) {
+		if (instrument.symbol == symbol) {
+			return instrument;
+		}
+	}
+
+	return {};
+}
+
 std::int64_t RESTClient::fetchLastTimestampForDelistedSpotSymbol(const std::string &symbol) const {
 	return m_p->fetchLastTimestampForDelistedSymbol(symbol);
 }
@@ -624,7 +790,7 @@ bool RESTClient::setPositionMode(Category category,
 	payload["mode"] = positionMode;
 
     m_p->rateLimiter.wait();
-	const auto response = m_p->checkResponse(m_p->httpSession->post(path, payload));
+	const auto response = m_p->checkResponse(m_p->session()->post(path, payload));
 
 	try {
 		/// retCode == 0 is the success authority (handleBybitResponse throws
@@ -661,7 +827,7 @@ OrderId RESTClient::placeOrder(Order &order) const {
 	order.qtyStep = qtyStep;
 
     m_p->rateLimiter.wait();
-	const auto response = m_p->checkResponse(m_p->httpSession->post(path, order.toJson()));
+	const auto response = m_p->checkResponse(m_p->session()->post(path, order.toJson()));
 	return handleBybitResponse<OrderId>(response);
 }
 
@@ -706,19 +872,44 @@ OrderId RESTClient::amendOrder(const Category category,
 	}
 
     m_p->rateLimiter.wait();
-	const auto response = m_p->checkResponse(m_p->httpSession->post(path, payload));
+	const auto response = m_p->checkResponse(m_p->session()->post(path, payload));
 	return handleBybitResponse<OrderId>(response);
 }
 
-std::vector<OrderResponse> RESTClient::getOpenOrders(const Category category, const std::string &symbol) const {
+std::vector<OrderResponse> RESTClient::getOpenOrders(const Category category, const std::string &symbol, const std::string &settleCoin) const {
 	const std::string path = "/v5/order/realtime";
-	std::map<std::string, std::string> parameters;
-	parameters.insert_or_assign("category", magic_enum::enum_name(category));
-	parameters.insert_or_assign("symbol", symbol);
 
-    m_p->rateLimiter.wait();
-	const auto response = m_p->checkResponse(m_p->httpSession->get(path, parameters));
-	return handleBybitResponse<OrdersResponse>(response).orders;
+	// Bybit pages this endpoint (default 20, max 50) — iterate the cursor so a
+	// caller sweeping stray orders sees ALL of them. A page failure throws;
+	// partial data is never returned.
+	std::vector<OrderResponse> orders;
+	std::string cursor;
+
+	do {
+		std::map<std::string, std::string> parameters;
+		parameters.insert_or_assign("category", magic_enum::enum_name(category));
+		parameters.insert_or_assign("limit", "50");
+
+		if (!symbol.empty()) {
+			parameters.insert_or_assign("symbol", symbol);
+		}
+
+		if (!settleCoin.empty()) {
+			parameters.insert_or_assign("settleCoin", settleCoin);
+		}
+
+		if (!cursor.empty()) {
+			parameters.insert_or_assign("cursor", cursor);
+		}
+
+		m_p->rateLimiter.wait();
+		const auto response = m_p->checkResponse(m_p->session()->get(path, parameters));
+		auto page = handleBybitResponse<OrdersResponse>(response);
+		orders.insert(orders.end(), page.orders.begin(), page.orders.end());
+		cursor = page.nextPageCursor;
+	} while (!cursor.empty());
+
+	return orders;
 }
 
 std::optional<OrderResponse>
@@ -730,20 +921,32 @@ RESTClient::getOpenOrder(const Category category,
 	std::map<std::string, std::string> parameters;
 	parameters.insert_or_assign("category", magic_enum::enum_name(category));
 	parameters.insert_or_assign("symbol", symbol);
-	parameters.insert_or_assign("orderId", orderId);
-	parameters.insert_or_assign("orderLinkId", orderLinkId);
+
+	/// Empty parameters must not be sent at all - Bybit rejects an empty orderId/orderLinkId value
+	if (!orderId.empty()) {
+		parameters.insert_or_assign("orderId", orderId);
+	}
+
+	if (!orderLinkId.empty()) {
+		parameters.insert_or_assign("orderLinkId", orderLinkId);
+	}
 
     m_p->rateLimiter.wait();
-	if (const auto response = m_p->checkResponse(m_p->httpSession->get(path, parameters)); !handleBybitResponse<
-		OrdersResponse>(response).orders.empty()) {
-		return handleBybitResponse<OrdersResponse>(response).orders.front();
+	const auto response = m_p->checkResponse(m_p->session()->get(path, parameters));
+
+	if (auto orders = handleBybitResponse<OrdersResponse>(response).orders; !orders.empty()) {
+		return orders.front();
 	}
 
 	return {};
 }
 
-std::vector<EventExecution> RESTClient::getExecutions(const Category category, const std::string &symbol, const std::string &orderLinkId) const {
-	const std::string path = "/v5/execution/list";
+std::optional<OrderResponse>
+RESTClient::getOrderHistory(const Category category,
+                            const std::string &symbol,
+                            const std::string &orderId,
+                            const std::string &orderLinkId) const {
+	const std::string path = "/v5/order/history";
 	std::map<std::string, std::string> parameters;
 	parameters.insert_or_assign("category", magic_enum::enum_name(category));
 
@@ -751,22 +954,93 @@ std::vector<EventExecution> RESTClient::getExecutions(const Category category, c
 		parameters.insert_or_assign("symbol", symbol);
 	}
 
+	/// Empty parameters must not be sent at all - Bybit rejects an empty orderId/orderLinkId value
+	if (!orderId.empty()) {
+		parameters.insert_or_assign("orderId", orderId);
+	}
+
 	if (!orderLinkId.empty()) {
 		parameters.insert_or_assign("orderLinkId", orderLinkId);
 	}
 
 	m_p->rateLimiter.wait();
-	const auto response = m_p->checkResponse(m_p->httpSession->get(path, parameters));
-	const auto result = handleBybitResponse<Response>(response).result;
+	const auto response = m_p->checkResponse(m_p->session()->get(path, parameters));
+
+	if (auto orders = handleBybitResponse<OrdersResponse>(response).orders; !orders.empty()) {
+		return orders.front();
+	}
+
+	return {};
+}
+
+std::vector<EventExecution> RESTClient::getExecutions(const Category category, const std::string &symbol, const std::string &orderLinkId) const {
+	const std::string path = "/v5/execution/list";
+
+	/// One order can fill in more pieces than a single page holds - Bybit defaults to 50 and hands out the rest
+	/// through nextPageCursor. Reading only the first page would silently understate the fill.
+	static constexpr int PAGE_LIMIT = 100;
+	static constexpr int MAX_PAGES = 20;
 
 	std::vector<EventExecution> executions;
+	std::string cursor;
+	bool listingComplete = false;
 
-	if (result.contains("list") && result["list"].is_array()) {
-		for (const auto &el: result["list"]) {
-			EventExecution execution;
-			execution.fromJson(el);
-			executions.push_back(execution);
+	for (int page = 0; page < MAX_PAGES; page++) {
+		std::map<std::string, std::string> parameters;
+		parameters.insert_or_assign("category", magic_enum::enum_name(category));
+		parameters.insert_or_assign("limit", std::to_string(PAGE_LIMIT));
+
+		if (!symbol.empty()) {
+			parameters.insert_or_assign("symbol", symbol);
 		}
+
+		if (!orderLinkId.empty()) {
+			parameters.insert_or_assign("orderLinkId", orderLinkId);
+		}
+
+		if (!cursor.empty()) {
+			parameters.insert_or_assign("cursor", cursor);
+		}
+
+		m_p->rateLimiter.wait();
+		const auto response = m_p->checkResponse(m_p->session()->get(path, parameters));
+		const auto result = handleBybitResponse<Response>(response).result;
+
+		if (result.contains("list") && result["list"].is_array()) {
+			for (const auto &el: result["list"]) {
+				EventExecution execution;
+				execution.fromJson(el);
+				executions.push_back(execution);
+			}
+		}
+
+		std::string nextCursor;
+		readValue<std::string>(result, "nextPageCursor", nextCursor);
+
+		/// An empty cursor is the only end of the listing that means the caller
+		/// holds every execution.
+		if (nextCursor.empty()) {
+			listingComplete = true;
+			break;
+		}
+
+		/// A repeated cursor would loop forever, and the page cap can be reached
+		/// with the venue still offering more. Both leave executions the caller
+		/// has not seen, and this feed reconciles fills the WS stream missed, so
+		/// an understated result would silently leave a real fill uncredited.
+		/// Fail closed rather than pass a partial vector off as the whole list.
+		if (nextCursor == cursor) {
+			throw std::runtime_error(
+				fmt::format("Bybit execution list repeated its page cursor after {} executions", executions.size()));
+		}
+
+		cursor = nextCursor;
+	}
+
+	if (!listingComplete) {
+		throw std::runtime_error(
+			fmt::format("Bybit execution list exceeded {} pages and is still incomplete after {} executions",
+			            MAX_PAGES, executions.size()));
 	}
 
 	return executions;
@@ -784,7 +1058,7 @@ std::vector<OrderId> RESTClient::cancelAllOrders(Category category, const std::s
 	}
 
     m_p->rateLimiter.wait();
-	const auto response = m_p->checkResponse(m_p->httpSession->post(path, nlohmann::json(parameters)));
+	const auto response = m_p->checkResponse(m_p->session()->post(path, nlohmann::json(parameters)));
 
 	for (const auto res = handleBybitResponse<Response>(response).result; const auto &el: res["list"].
 	     items()) {
@@ -815,12 +1089,20 @@ OrderId RESTClient::cancelOrder(const Category category,
 	}
 
     m_p->rateLimiter.wait();
-	const auto response = m_p->checkResponse(m_p->httpSession->post(path, nlohmann::json(parameters)));
+	const auto response = m_p->checkResponse(m_p->session()->post(path, nlohmann::json(parameters)));
 	return handleBybitResponse<OrderId>(response);
 }
 
 void RESTClient::setInstruments(const std::vector<Instrument> &instruments) const {
 	m_p->setInstruments(instruments);
+}
+
+std::int64_t RESTClient::lastSuccessfulResponseMs() const {
+	return m_p->session()->lastSuccessfulResponseMs();
+}
+
+void RESTClient::setRequestTimeout(const int timeoutMs) const {
+	m_p->session()->setRequestTimeout(timeoutMs);
 }
 
 void RESTClient::closeAllPositions(const Category category, const std::string &settleCoin) const {
@@ -878,7 +1160,7 @@ Tickers RESTClient::getTickers(const Category category, const std::string &symbo
 	parameters.insert_or_assign("symbol", symbol);
 
     m_p->rateLimiter.wait();
-	const auto response = m_p->checkResponse(m_p->httpSession->get(path, parameters));
+	const auto response = m_p->checkResponse(m_p->session()->get(path, parameters));
 	return handleBybitResponse<Tickers>(response);
 }
 }

@@ -6,8 +6,8 @@ SPDX-License-Identifier: MIT
 Copyright (c) 2026 Vitezslav Kot <vitezslav.kot@stonky.cz>, Stonky s.r.o.
 */
 
-#ifndef DIRTY_CARRY_BYBIT_EXECUTION_GATEWAY_H
-#define DIRTY_CARRY_BYBIT_EXECUTION_GATEWAY_H
+#ifndef BYBIT_EXECUTION_GATEWAY_H
+#define BYBIT_EXECUTION_GATEWAY_H
 
 #include <stonky/interface/i_execution_gateway.h>
 #include "stonky/bybit/bybit_enums.h"
@@ -65,8 +65,24 @@ public:
     bool cancel(const std::string &clientOrderId, const std::string &symbol) override;
 
     void submitReduceOnlyMarket(const std::string &clientOrderId, const std::string &symbol, OrderSide side, double qty) override;
+
+    /**
+     * Startup orphan recovery: cancel every open linear order whose client
+     * order id starts with the given prefix (this bot's orders — a crash,
+     * SIGKILL or lost ack can leave them resting). Orders without the prefix
+     * (manual, other strategies on a shared account) are never touched.
+     * Call after start(); the private stream then delivers the Cancelled
+     * events, and the cancel path's REST reconciliation covers fills that
+     * landed while nobody was listening.
+     * @param clientOrderIdPrefix e.g. "dc-"
+     * @param settleCoin e.g. USDT — scopes the open-orders listing
+     * @return number of cancels submitted
+     * @throws on REST failure — the caller must not proceed as if the venue
+     *         were clean
+     */
+    int cancelStrayOrders(const std::string &clientOrderIdPrefix, const std::string &settleCoin);
 };
 
 } // namespace stonky::execution
 
-#endif // DIRTY_CARRY_BYBIT_EXECUTION_GATEWAY_H
+#endif // BYBIT_EXECUTION_GATEWAY_H

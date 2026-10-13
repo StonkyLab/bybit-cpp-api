@@ -103,6 +103,16 @@ public:
                                                              const std::string& status = "") const;
 
     /**
+     * Get info of a single instrument. Unlike getInstrumentsInfo() this does not copy the whole instrument list,
+     * use it whenever only one symbol is of interest.
+     * @param category i.e. Spot, Linear...
+     * @param symbol e.g. BTCUSDT
+     * @throws nlohmann::json::exception, std::exception
+     * @return filled Instrument structure or bad option when the symbol is not listed
+     */
+    [[nodiscard]] std::optional<Instrument> getInstrumentInfo(Category category, const std::string& symbol) const;
+
+    /**
      * Switching between One-Way Mode and Hedge Mode
      * @param category i.e. Spot, Linear...
      * @param symbol e.g. BTCUSDT, Required if not passing coin
@@ -143,14 +153,19 @@ public:
                                      double price, double qty = 0.0) const;
 
     /**
-     * Get open orders list
+     * Get open orders list. Paginated internally (limit=50 + cursor) so the
+     * full set is always returned; a page failure throws — partial data is
+     * never returned.
      * @param category i.e. Spot, Linear...
-     * @param symbol e.g. BTCUSDT
+     * @param symbol e.g. BTCUSDT; may be empty when settleCoin is set
+     * @param settleCoin e.g. USDT — lists open orders across ALL symbols of
+     *        the settle coin (linear/inverse accept settleCoin instead of
+     *        symbol)
      * @throws nlohmann::json::exception, std::exception
      * @return vector of OrderResponse structures
      * @see https://bybit-exchange.github.io/docs/v5/order/open-order
      */
-    [[nodiscard]] std::vector<OrderResponse> getOpenOrders(Category category, const std::string& symbol) const;
+    [[nodiscard]] std::vector<OrderResponse> getOpenOrders(Category category, const std::string& symbol, const std::string& settleCoin = "") const;
 
     /**
      * Get open order. Because order creation/cancellation is asynchronous, there can be a data delay in this
@@ -165,6 +180,22 @@ public:
     [[nodiscard]] std::optional<OrderResponse>
     getOpenOrder(Category category, const std::string& symbol, const std::string& orderId,
                  const std::string& orderLinkId) const;
+
+    /**
+     * Get a finished order from the order history. /v5/order/realtime only serves orders that are still working, so
+     * an order that filled or was cancelled has to be looked up here - this endpoint is what settles its terminal
+     * state, which an empty realtime answer on its own does not.
+     * @param category i.e. Spot, Linear...
+     * @param symbol e.g. BTCUSDT
+     * @param orderId Venue order id; may be empty when orderLinkId is set
+     * @param orderLinkId User-set order id; may be empty when orderId is set
+     * @return the order record, or bad option when the history does not hold it (yet)
+     * @throws nlohmann::json::exception, std::exception
+     * @see https://bybit-exchange.github.io/docs/v5/order/order-list
+     */
+    [[nodiscard]] std::optional<OrderResponse>
+    getOrderHistory(Category category, const std::string& symbol, const std::string& orderId,
+                    const std::string& orderLinkId) const;
 
     /**
      * Get an order's executions (trade history) — used to reconcile fills the
@@ -208,6 +239,18 @@ public:
      * @param instruments
      */
     void setInstruments(const std::vector<Instrument>& instruments) const;
+
+    /**
+     * Wall clock time in ms of the last response received in full from the exchange, 0 when there was none yet. Use
+     * it to judge whether the connection is still alive without issuing a probe request.
+     */
+    [[nodiscard]] std::int64_t lastSuccessfulResponseMs() const;
+
+    /**
+     * Bound for the blocking socket operations of a single request
+     * @param timeoutMs 0 or less falls back to the built in stall timeout
+     */
+    void setRequestTimeout(int timeoutMs) const;
 
     /**
      * Close all open positions with market order

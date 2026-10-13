@@ -7,11 +7,13 @@ Copyright (c) 2026 Vitezslav Kot <vitezslav.kot@stonky.cz>, Stonky s.r.o.
 */
 
 #include "stonky/bybit/bybit_execution_gateway.h"
+#include "stonky/bybit/bybit_http_session.h"
 #include "stonky/bybit/bybit_rest_client.h"
 #include "stonky/bybit/bybit_ws_private_stream_manager.h"
 #include "stonky/bybit/bybit_ws_stream_manager.h"
 #include <spdlog/spdlog.h>
 #include <algorithm>
+#include <cstdlib>
 #include <map>
 #include <mutex>
 #include <thread>
@@ -43,9 +45,50 @@ std::string toLower(std::string s) {
     return s;
 }
 
-/// Port of the Python reject classifier (live_executor.py on_order_rejected)
-/// extended with the sync REST error strings observed on Bybit V5.
+/// Numeric retCode from the REST error format "Bybit API error, code: N, ..."
+/// (handleBybitResponse). WS reject reasons carry symbolic strings instead
+/// (e.g. "EC_PostOnlyWillTakeLiquidity") — those fall through to text matching.
+std::optional<long> extractRetCode(const std::string &reason) {
+    if (const auto pos = reason.find("code: "); pos != std::string::npos) {
+        return std::strtol(reason.c_str() + pos + 6, nullptr, 10);
+    }
+
+    return std::nullopt;
+}
+
+/// Port of the Python reject classifier (live_executor.py on_order_rejected).
+/// Numeric retCode is the primary key (venue reject STRINGS are not contract
+/// and have drifted before — audit 2026-08-13); the free-text matching remains
+/// as the fallback for WS event reasons, which carry no code.
 RejectKind classifyRejectReason(const std::string &reason) {
+    if (const auto code = extractRetCode(reason)) {
+        switch (*code) {
+            case 30208: /// post-only would cross ("...can only be a maker order")
+                return RejectKind::BenignPostOnlyCross;
+            case 110094: /// "Order does not meet minimum order value"
+                return RejectKind::MinNotional;
+            case 10006: /// "Too many visits!" — venue rate limit. As Hard it
+                /// would count toward the fatal reject cap and resubmit into
+                /// the throttle window (the 510-as-Hard MEXC failure mode).
+                return RejectKind::Throttled;
+            case 110017: /// reduce-only rule not satisfied / qty would truncate
+                /// to zero — the position the reduce targeted is already gone
+                /// (or smaller than the order). Goal met: end the leg cleanly
+                /// instead of looping the same reject to the 20-cap (the MEXC
+                /// 2009/SPELL pattern). A wrong-side reduce cannot reach the
+                /// venue (chase-side guard), and a partial residual is
+                /// re-derived from venue truth by the hourly cleanup.
+                return RejectKind::PositionClosed;
+            case 10029: /// symbol not whitelisted for this API key — no retry
+                /// can ever succeed; live-observed 2026-07-06
+            case 30228: /// delisting — venue refuses new positions
+            case 110087: /// only reduce-only allowed (pre-delist state)
+                return RejectKind::Permanent;
+            default:
+                break; /// unrecognized code → text fallback below
+        }
+    }
+
     const auto r = toLower(reason);
 
     if (r.find("postonly") != std::string::npos || r.find("post only") != std::string::npos || r.find("post-only") != std::string::npos ||
@@ -58,20 +101,11 @@ RejectKind classifyRejectReason(const std::string &reason) {
         return RejectKind::MinNotional;
     }
 
-    /// 10006 "Too many visits!" — venue rate limit. As Hard it would count
-    /// toward the fatal reject cap and resubmit into the throttle window
-    /// (the exact 510-as-Hard failure mode fixed on the MEXC side).
-    if (r.find("code: 10006") != std::string::npos || r.find("too many visits") != std::string::npos || r.find("rate limit") != std::string::npos) {
+    if (r.find("too many visits") != std::string::npos || r.find("rate limit") != std::string::npos) {
         return RejectKind::Throttled;
     }
 
-    /// 110017 "reduce-only rule not satisfied" / "position is zero" — a reduce
-    /// whose position is already gone. Goal met: end the leg cleanly instead of
-    /// looping the same reject to the 20-cap (the MEXC 2009/SPELL pattern). A
-    /// wrong-side reduce cannot reach the venue (chase-side guard), and a
-    /// partial residual is re-derived from venue truth by the hourly cleanup.
-    if (r.find("code: 110017") != std::string::npos || r.find("reduce-only rule") != std::string::npos || r.find("reduce only rule") != std::string::npos ||
-        r.find("position is zero") != std::string::npos) {
+    if (r.find("reduce-only rule") != std::string::npos || r.find("reduce only rule") != std::string::npos || r.find("position is zero") != std::string::npos) {
         return RejectKind::PositionClosed;
     }
 
@@ -81,9 +115,6 @@ RejectKind classifyRejectReason(const std::string &reason) {
         /// "position idx not match position mode" = account not in one-way mode —
         /// a config error affecting EVERY order; burning the backoff ladder on it
         /// would eat the whole chase window instead of failing fast.
-        /// 10029 "symbol is not whitelisted" = the API key cannot trade this
-        /// symbol at all (key symbol restriction, pre-market perp) — no retry
-        /// can ever succeed; live-observed 2026-07-06.
         return RejectKind::Permanent;
     }
 
@@ -93,14 +124,40 @@ RejectKind classifyRejectReason(const std::string &reason) {
 /// Venue responses to cancel/amend of an order that already left the book —
 /// not failures from the chase core's perspective.
 bool isOrderGoneReason(const std::string &reason) {
+    if (const auto code = extractRetCode(reason)) {
+        switch (*code) {
+            case 110001: /// order does not exist
+            case 110008: /// order already finished
+            case 110010: /// order already cancelled
+                return true;
+            default:
+                break;
+        }
+    }
+
     const auto r = toLower(reason);
     return r.find("order not exists") != std::string::npos || r.find("too late") != std::string::npos || r.find("order does not exist") != std::string::npos ||
            r.find("110001") != std::string::npos;
 }
+
+/// Server-side responses whose outcome is UNKNOWN — Bybit may have executed the
+/// request despite answering with an error. retCode 10000 "Server Timeout" and
+/// 10016 "Server error" arrive as valid API responses; HTTP 5xx ("Bad response,
+/// code 5xx" from checkResponse) never carries a retCode at all. None of them
+/// prove the order does NOT exist, so they must not become a definitive
+/// GatewayError reject — the chase core's non-GatewayError path safety-cancels
+/// and reconciles instead.
+bool isAmbiguousOutcomeReason(const std::string &reason) {
+    const auto r = toLower(reason);
+    return r.find("code: 10000") != std::string::npos || r.find("code: 10016") != std::string::npos || r.find("bad response, code 5") != std::string::npos;
+}
 } // namespace
 
 struct BybitExecutionGateway::P {
-    std::unique_ptr<RESTClient> restClient;
+    /// shared_ptr (not unique): the public WS stream manager holds a weak_ptr
+    /// for its REST quote fallback (readEventTicker refreshes a stale ticker
+    /// from REST when the stream goes silent).
+    std::shared_ptr<RESTClient> restClient;
     std::unique_ptr<WSPrivateStreamManager> privateStream;
     std::unique_ptr<WSStreamManager> publicStream;
     int positionIdx{0}; ///< 0 = one-way, 1/2 = hedge-mode long/short leg
@@ -125,6 +182,20 @@ struct BybitExecutionGateway::P {
     static OrderSide toSide(const Side side) { return side == Side::Buy ? OrderSide::Buy : OrderSide::Sell; }
 
     static Side fromSide(const OrderSide side) { return side == OrderSide::Buy ? Side::Buy : Side::Sell; }
+
+    /// Health gate for operations that CREATE exposure. The private stream is
+    /// the only fill/order event source and Bybit does not replay a reconnect
+    /// gap — an order submitted (or re-priced) while unauthenticated could
+    /// fill with nobody listening. Throttled classification: the chase core
+    /// backs off and retries without burning its fatal-reject cap, and resumes
+    /// the moment the stream re-authenticates. cancel() is deliberately NOT
+    /// gated — cancelling reduces exposure, and its order-gone path already
+    /// reconciles missed fills from REST.
+    void requireEventStream(const char *op) const {
+        if (!privateStream->isAuthenticated()) {
+            throw GatewayError(RejectKind::Throttled, fmt::format("Bybit private stream not authenticated — {} gated until reconnect (fills would be lost)", op));
+        }
+    }
 
     /// The venue reported an order gone at cancel time — "gone" can mean FILLED.
     /// If the private WS dropped that fill during a reconnect gap, the core's
@@ -184,7 +255,7 @@ struct BybitExecutionGateway::P {
 BybitExecutionGateway::BybitExecutionGateway(const std::string &apiKey, const std::string &apiSecret, const Environment env, const int positionIdx) :
     m_p(std::make_unique<P>()) {
     m_p->positionIdx = positionIdx;
-    m_p->restClient = std::make_unique<RESTClient>(apiKey, apiSecret, env);
+    m_p->restClient = std::make_shared<RESTClient>(apiKey, apiSecret, env);
     m_p->privateStream = std::make_unique<WSPrivateStreamManager>(apiKey, apiSecret, env);
     m_p->publicStream = std::make_unique<WSStreamManager>();
 
@@ -193,6 +264,10 @@ BybitExecutionGateway::BybitExecutionGateway(const std::string &apiKey, const st
     /// Bound the blocking window of readEventTicker when a symbol has no data
     /// yet; the chase core polls, it must not hang for the default 5 s.
     m_p->publicStream->setTimeout(1);
+    /// Wire the REST quote fallback: with a stale/silent ticker stream,
+    /// readEventTicker refreshes the cached quote from REST instead of
+    /// reporting nothing until the stream recovers.
+    m_p->publicStream->setRestClient(m_p->restClient);
 
     m_p->publicStream->setTickerUpdateCallback([this](const EventTicker &ticker) {
         if (m_p->quoteCB) {
@@ -376,9 +451,21 @@ void BybitExecutionGateway::submitPostOnlyLimit(const std::string &clientOrderId
     order.orderLinkId = clientOrderId;
     order.positionIdx = m_p->positionIdx;
 
+    m_p->requireEventStream("submit");
+
     try {
         [[maybe_unused]] const auto orderId = m_p->restClient->placeOrder(order);
+    } catch (TransportError &) {
+        /// Outcome UNKNOWN — the order may rest on the venue although we never
+        /// saw the ack. Propagate untouched: GatewayError means "the venue
+        /// definitively rejected this", and on that the chase core deletes the
+        /// route; here it must instead keep the route and safety-cancel.
+        throw;
     } catch (std::exception &e) {
+        if (isAmbiguousOutcomeReason(e.what())) {
+            throw; /// server-side timeout/5xx — same unknown-outcome contract as TransportError
+        }
+
         throw GatewayError(classifyRejectReason(e.what()), e.what());
     }
 }
@@ -386,9 +473,20 @@ void BybitExecutionGateway::submitPostOnlyLimit(const std::string &clientOrderId
 bool BybitExecutionGateway::supportsAmend() const { return true; }
 
 void BybitExecutionGateway::amendPrice(const std::string &clientOrderId, const std::string &symbol, const double price) {
+    m_p->requireEventStream("amend");
+
     try {
         [[maybe_unused]] const auto orderId = m_p->restClient->amendOrder(Category::linear, symbol, "", clientOrderId, price);
+    } catch (TransportError &) {
+        /// Outcome UNKNOWN — the order may now rest at either price. Propagate
+        /// untouched; the core's amend-failure path cancels the order, which
+        /// resolves the ambiguity either way.
+        throw;
     } catch (std::exception &e) {
+        if (isAmbiguousOutcomeReason(e.what())) {
+            throw;
+        }
+
         throw GatewayError(classifyRejectReason(e.what()), e.what());
     }
 }
@@ -398,6 +496,11 @@ bool BybitExecutionGateway::cancel(const std::string &clientOrderId, const std::
         const auto orderId = m_p->restClient->cancelOrder(Category::linear, symbol, "", clientOrderId);
         spdlog::debug("BybitGW cancel ack: {} linkId={} orderId={}", symbol, clientOrderId, orderId.orderId);
         return true;
+    } catch (TransportError &) {
+        /// Outcome UNKNOWN — the cancel may or may not have reached the venue.
+        /// Propagate untouched so the core keeps the order pending and retries,
+        /// instead of reading a definitive venue answer into a network fault.
+        throw;
     } catch (std::exception &e) {
         if (isOrderGoneReason(e.what())) {
             spdlog::debug("BybitGW cancel — order already gone: {} linkId={} ({})", symbol, clientOrderId, e.what());
@@ -406,6 +509,10 @@ bool BybitExecutionGateway::cancel(const std::string &clientOrderId, const std::
             /// from REST before reporting the order gone.
             m_p->reconcileMissedFills(clientOrderId, symbol);
             return false; /// terminal event already delivered (or lost) — do not wait for one
+        }
+
+        if (isAmbiguousOutcomeReason(e.what())) {
+            throw;
         }
 
         throw GatewayError(classifyRejectReason(e.what()), e.what());
@@ -426,9 +533,42 @@ void BybitExecutionGateway::submitReduceOnlyMarket(const std::string &clientOrde
 
     try {
         [[maybe_unused]] const auto orderId = m_p->restClient->placeOrder(order);
+    } catch (TransportError &) {
+        /// Outcome UNKNOWN — a market IOC may have executed without the ack.
+        /// Propagate untouched; the caller must verify the position instead of
+        /// re-sending the close on a supposed reject.
+        throw;
     } catch (std::exception &e) {
+        if (isAmbiguousOutcomeReason(e.what())) {
+            throw;
+        }
+
         throw GatewayError(classifyRejectReason(e.what()), e.what());
     }
+}
+
+int BybitExecutionGateway::cancelStrayOrders(const std::string &clientOrderIdPrefix, const std::string &settleCoin) {
+    int cancelled = 0;
+
+    for (const auto &order: m_p->restClient->getOpenOrders(Category::linear, "", settleCoin)) {
+        if (!order.orderLinkId.starts_with(clientOrderIdPrefix)) {
+            continue; /// manual or other strategies' orders on a shared account are not ours to touch
+        }
+
+        spdlog::warn("BybitGW: stray order from a previous run — cancelling {} linkId={} qty={} px={}", order.symbol, order.orderLinkId, order.qty, order.price);
+
+        try {
+            /// cancel() handles "already gone" (reconciles fills from REST) and
+            /// classifies real failures; a stray we cannot cancel is rethrown —
+            /// the caller must not report a clean venue.
+            cancel(order.orderLinkId, order.symbol);
+            ++cancelled;
+        } catch (GatewayError &e) {
+            throw GatewayError(e.kind, fmt::format("stray order {} on {} could not be cancelled: {}", order.orderLinkId, order.symbol, e.what()));
+        }
+    }
+
+    return cancelled;
 }
 
 } // namespace stonky::execution

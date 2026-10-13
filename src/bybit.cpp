@@ -80,7 +80,7 @@ bool Bybit::isValidCandleResolution(const std::int32_t resolution, CandleInterva
         case 10080:
             candleInterval = CandleInterval::_W;
             return true;
-        case 40320:
+        case 43200:
             candleInterval = CandleInterval::_M;
             return true;
         default:
