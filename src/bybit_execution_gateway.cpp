@@ -103,6 +103,7 @@ struct BybitExecutionGateway::P {
     std::unique_ptr<RESTClient> restClient;
     std::unique_ptr<WSPrivateStreamManager> privateStream;
     std::unique_ptr<WSStreamManager> publicStream;
+    int positionIdx{0}; ///< 0 = one-way, 1/2 = hedge-mode long/short leg
 
     onOrderUpdateEvent orderUpdateCB;
     onFillEvent fillCB;
@@ -180,7 +181,9 @@ struct BybitExecutionGateway::P {
     }
 };
 
-BybitExecutionGateway::BybitExecutionGateway(const std::string &apiKey, const std::string &apiSecret, const Environment env) : m_p(std::make_unique<P>()) {
+BybitExecutionGateway::BybitExecutionGateway(const std::string &apiKey, const std::string &apiSecret, const Environment env, const int positionIdx) :
+    m_p(std::make_unique<P>()) {
+    m_p->positionIdx = positionIdx;
     m_p->restClient = std::make_unique<RESTClient>(apiKey, apiSecret, env);
     m_p->privateStream = std::make_unique<WSPrivateStreamManager>(apiKey, apiSecret, env);
     m_p->publicStream = std::make_unique<WSStreamManager>();
@@ -371,7 +374,7 @@ void BybitExecutionGateway::submitPostOnlyLimit(const std::string &clientOrderId
     order.price = price;
     order.reduceOnly = reduceOnly;
     order.orderLinkId = clientOrderId;
-    order.positionIdx = 0; /// one-way mode required
+    order.positionIdx = m_p->positionIdx;
 
     try {
         [[maybe_unused]] const auto orderId = m_p->restClient->placeOrder(order);
@@ -419,7 +422,7 @@ void BybitExecutionGateway::submitReduceOnlyMarket(const std::string &clientOrde
     order.qty = qty;
     order.reduceOnly = true;
     order.orderLinkId = clientOrderId;
-    order.positionIdx = 0;
+    order.positionIdx = m_p->positionIdx;
 
     try {
         [[maybe_unused]] const auto orderId = m_p->restClient->placeOrder(order);

@@ -18,9 +18,11 @@ namespace stonky::execution {
 /**
  * IExecutionGateway adapter over bybit-cpp-api: REST for order ops and
  * instrument metadata, private WS (order+execution topics) for events, public
- * WS ticker stream for top-of-book quotes. Requires the account in one-way
- * position mode (positionIdx=0). Bybit reject reasons are classified into
- * RejectKind here — the chase core never sees venue strings.
+ * WS ticker stream for top-of-book quotes. Every order carries the configured
+ * positionIdx: 0 for a one-way account (default), 1 (long) / 2 (short) for a
+ * hedge-mode account — a mismatch is rejected by Bybit as Permanent. Bybit
+ * reject reasons are classified into RejectKind here — the chase core never
+ * sees venue strings.
  *
  * NOTE (Demo): market data comes from the mainnet public stream even in the
  * Demo environment; only REST and the private stream point at demo hosts.
@@ -30,7 +32,7 @@ class BybitExecutionGateway final : public IExecutionGateway {
     std::unique_ptr<P> m_p{};
 
 public:
-    BybitExecutionGateway(const std::string &apiKey, const std::string &apiSecret, bybit::Environment env = bybit::Environment::Mainnet);
+    BybitExecutionGateway(const std::string &apiKey, const std::string &apiSecret, bybit::Environment env = bybit::Environment::Mainnet, int positionIdx = 0);
 
     ~BybitExecutionGateway() override;
 
