@@ -91,6 +91,13 @@ public:
      * @return True if subscribed
      */
     [[nodiscard]] bool isSubscribed(const std::string &subscriptionFilter) const;
+
+    /**
+     * True only when the venue ACKNOWLEDGED the topic's subscribe on the current
+     * connection. isSubscribed() is also true while the op is pending, in flight
+     * or about to be replayed after a reconnect — events need not flow yet.
+     */
+    [[nodiscard]] bool isSubscriptionConfirmed(const std::string &subscriptionFilter) const;
 };
 } // namespace stonky::bybit
 #endif // INCLUDE_STONKY_BYBIT_WS_SESSION_H

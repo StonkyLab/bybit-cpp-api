@@ -87,6 +87,22 @@ void WSPrivateStreamManager::setExecutionCallback(const onExecution& onExecution
 
 bool WSPrivateStreamManager::isAuthenticated() const { return m_p->wsClient->isAuthenticated(); }
 
+bool WSPrivateStreamManager::isLive() const {
+    bool live = m_p->wsClient->isAuthenticated();
+
+    for (const auto *topic: {ORDER_TOPIC, EXECUTION_TOPIC}) {
+        /// A rejected subscribe is pruned from the session's books (no replay) —
+        /// ask again rather than stay deaf for the rest of the run.
+        if (!m_p->wsClient->isSubscribed(topic)) {
+            m_p->wsClient->subscribe(topic);
+        }
+
+        live = live && m_p->wsClient->isSubscriptionConfirmed(topic);
+    }
+
+    return live;
+}
+
 void WSPrivateStreamManager::connect() const {
     if (!m_p->wsClient->isSubscribed(ORDER_TOPIC)) {
         m_p->wsClient->subscribe(ORDER_TOPIC);

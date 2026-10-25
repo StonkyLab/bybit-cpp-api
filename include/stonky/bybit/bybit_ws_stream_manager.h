@@ -11,6 +11,7 @@ Copyright (c) 2022 Vitezslav Kot <vitezslav.kot@stonky.cz>, Stonky s.r.o.
 
 #include "stonky/utils/log_utils.h"
 #include "stonky/bybit/bybit_event_models.h"
+#include "stonky/bybit/bybit_enums.h"
 #include <memory>
 #include <optional>
 
@@ -24,7 +25,9 @@ class WSStreamManager {
     std::unique_ptr<P> m_p{};
 
 public:
-    explicit WSStreamManager();
+    /// Testnet streams from the testnet host; Mainnet and Demo share the
+    /// mainnet public stream (Bybit Demo trading has no market data of its own).
+    explicit WSStreamManager(Environment env = Environment::Mainnet);
 
     ~ WSStreamManager();
 

@@ -91,6 +91,9 @@ public:
      * Always false without credentials.
      */
     [[nodiscard]] bool isAuthenticated() const;
+
+    /// The topic's subscribe was acknowledged on the current connection.
+    [[nodiscard]] bool isSubscriptionConfirmed(const std::string& subscriptionFilter) const;
 };
 }
 

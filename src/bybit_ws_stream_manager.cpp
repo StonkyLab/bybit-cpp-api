@@ -185,7 +185,11 @@ struct WSStreamManager::P {
     }
 };
 
-WSStreamManager::WSStreamManager() : m_p(std::make_unique<P>()) {}
+WSStreamManager::WSStreamManager(const Environment env) : m_p(std::make_unique<P>()) {
+    if (env == Environment::Testnet) {
+        m_p->wsClient->setEndpoint("stream-testnet.bybit.com", "443", "/v5/public/linear");
+    }
+}
 
 WSStreamManager::~WSStreamManager() {
     /// Release the readers first, they poll on the timeout value

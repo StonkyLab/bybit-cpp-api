@@ -89,6 +89,15 @@ public:
      * during a reconnect and comes back after re-auth).
      */
     [[nodiscard]] bool isAuthenticated() const;
+
+    /**
+     * True only when order AND fill events can flow: the connection is
+     * authenticated and the venue acknowledged both the "order" and the
+     * "execution" subscribe. A topic the venue rejected is re-requested here,
+     * so a transient rejection heals on the next check instead of leaving the
+     * stream authenticated but deaf.
+     */
+    [[nodiscard]] bool isLive() const;
 };
 } // namespace stonky::bybit
 

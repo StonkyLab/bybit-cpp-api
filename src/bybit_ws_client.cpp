@@ -157,6 +157,16 @@ bool WebSocketClient::isSubscribed(const std::string& subscriptionFilter) const 
     return false;
 }
 
+bool WebSocketClient::isSubscriptionConfirmed(const std::string& subscriptionFilter) const {
+    std::lock_guard lk(m_p->clientLocker);
+
+    if (m_p->session) {
+        return m_p->session->isSubscriptionConfirmed(subscriptionFilter);
+    }
+
+    return false;
+}
+
 bool WebSocketClient::isAuthenticated() const {
     std::lock_guard lk(m_p->clientLocker);
 

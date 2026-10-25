@@ -201,6 +201,19 @@ struct WebSocketSession::P {
         return std::ranges::find(pendingTopics, subscriptionFilter) != pendingTopics.end();
     }
 
+    /// Sent and acknowledged: in `subscriptions` and no longer awaiting its ack.
+    /// A reconnect moves every topic back to pendingTopics, so this is false
+    /// until the replayed subscribe is acked on the new connection.
+    [[nodiscard]] bool isSubscriptionConfirmed(const std::string &topic) const {
+        std::lock_guard lk(locker);
+
+        if (std::ranges::find(subscriptions, topic) == subscriptions.end()) {
+            return false;
+        }
+
+        return std::ranges::none_of(inflightSubscribes, [&](const auto &op) { return std::ranges::find(op.second, topic) != op.second.end(); });
+    }
+
     /// Send all pending topics in one subscribe op. No-op while disconnected
     /// or awaiting the auth ack — called again from both completion paths.
     void flushTopics(const std::shared_ptr<WebSocketSession> &self) {
@@ -721,6 +734,8 @@ void WebSocketSession::unsubscribe(const std::string &subscriptionFilter) const 
 bool WebSocketSession::isAuthenticated() const { return m_p->authenticatedFlag.load(); }
 
 bool WebSocketSession::isSubscribed(const std::string &subscriptionFilter) const { return m_p->isSubscribed(subscriptionFilter); }
+
+bool WebSocketSession::isSubscriptionConfirmed(const std::string &subscriptionFilter) const { return m_p->isSubscriptionConfirmed(subscriptionFilter); }
 
 void WebSocketSession::run(const std::string &host, const std::string &port, const std::string &path, const std::string &subscriptionFilter,
                            const onDataEvent &dataEventCB) {

@@ -24,8 +24,13 @@ namespace stonky::execution {
  * reject reasons are classified into RejectKind here — the chase core never
  * sees venue strings.
  *
- * NOTE (Demo): market data comes from the mainnet public stream even in the
- * Demo environment; only REST and the private stream point at demo hosts.
+ * NOTE (Demo): Bybit Demo trading has no market data of its own — its quotes
+ * come from the mainnet public stream; only REST and the private stream point
+ * at demo hosts. Testnet uses the testnet public host.
+ *
+ * Readiness: start() returns, and order ops pass the health gate, only while
+ * the private stream is LIVE — authenticated AND the order + execution
+ * subscribes acknowledged.
  */
 class BybitExecutionGateway final : public IExecutionGateway {
     struct P;

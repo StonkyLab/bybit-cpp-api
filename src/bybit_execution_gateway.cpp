@@ -192,8 +192,11 @@ struct BybitExecutionGateway::P {
     /// gated — cancelling reduces exposure, and its order-gone path already
     /// reconciles missed fills from REST.
     void requireEventStream(const char *op) const {
-        if (!privateStream->isAuthenticated()) {
-            throw GatewayError(RejectKind::Throttled, fmt::format("Bybit private stream not authenticated — {} gated until reconnect (fills would be lost)", op));
+        /// Authenticated is not enough: until the order/execution subscribes are
+        /// acked (and after every reconnect, until they are re-acked) no event
+        /// would reach us.
+        if (!privateStream->isLive()) {
+            throw GatewayError(RejectKind::Throttled, fmt::format("Bybit private stream not live — {} gated until order/execution events flow (fills would be lost)", op));
         }
     }
 
@@ -211,43 +214,64 @@ struct BybitExecutionGateway::P {
     /// very end of finishLeg). fillCB → onFill then routes to the live leg and
     /// dedups by execId. Do NOT call cancel() off the leg thread or after
     /// teardown, or a genuinely-missed fill would be dropped instead of credited.
+    ///
+    /// FAIL-CLOSED: cancel() may report "gone" only once the order's fills are
+    /// known. A REST failure, or an execution list that falls short of the
+    /// cumExecQty the order history already reports (REST indexing lag), throws
+    /// ExecutionUnknown — the caller keeps the order pending and retries, as
+    /// for any other unknown outcome. Residual: when the history does not hold
+    /// the order yet either, an empty list is taken as "never filled".
     void reconcileMissedFills(const std::string &clientOrderId, const std::string &symbol) const {
         if (!fillCB) {
             return;
         }
 
+        std::vector<EventExecution> executions;
+        std::optional<OrderResponse> finalState;
+
         try {
-            int reemitted = 0;
-
-            for (const auto &execution: restClient->getExecutions(Category::linear, symbol, clientOrderId)) {
-                if (execution.execType != ExecType::Trade || execution.execId.empty()) {
-                    continue;
-                }
-
-                FillEvent fill;
-                fill.clientOrderId = clientOrderId;
-                fill.symbol = symbol;
-                fill.fillId = execution.execId; /// same key as the WS feed → core dedups
-                fill.qty = execution.execQty;
-                fill.price = execution.execPrice;
-                fill.isMaker = execution.isMaker;
-                fillCB(fill);
-                ++reemitted;
-            }
-
-            if (reemitted > 0) {
-                spdlog::info("BybitGW: {} order {} gone at cancel — re-emitted {} execution(s) from REST (WS-gap safety; core dedups by execId, credits any missed fill)", symbol,
-                             clientOrderId, reemitted);
-            } else {
-                /// Empty is normal for a cleanly-cancelled (never-filled) order.
-                /// It is ALSO what a not-yet-indexed execution/list looks like, so
-                /// a WS-gap fill coinciding with REST lag would stay uncredited
-                /// here — bounded by the hourly venue-truth cleanup + neutrality
-                /// alert. Debug-level to avoid alarming on every teardown cancel.
-                spdlog::debug("BybitGW: {} order {} gone at cancel — no executions from REST (unfilled cancel, or REST lag on a gap fill)", symbol, clientOrderId);
-            }
+            executions = restClient->getExecutions(Category::linear, symbol, clientOrderId);
+            finalState = restClient->getOrderHistory(Category::linear, symbol, "", clientOrderId);
         } catch (std::exception &e) {
-            spdlog::warn("BybitGW: {} fill reconciliation for {} failed ({}) — verify the position; a WS-gap fill may be uncredited", symbol, clientOrderId, e.what());
+            throw ExecutionUnknown(fmt::format("Bybit {} order {} gone at cancel, but its fills could not be read back: {}", symbol, clientOrderId, e.what()));
+        }
+
+        double listedQty = 0.0;
+
+        for (const auto &execution: executions) {
+            if (execution.execType == ExecType::Trade && !execution.execId.empty()) {
+                listedQty += execution.execQty;
+            }
+        }
+
+        if (finalState && finalState->cumExecQty > listedQty + 1e-9) {
+            throw ExecutionUnknown(fmt::format("Bybit {} order {} gone at cancel: history reports {} filled, the execution list only {} — not indexed yet", symbol,
+                                               clientOrderId, finalState->cumExecQty, listedQty));
+        }
+
+        int reemitted = 0;
+
+        for (const auto &execution: executions) {
+            if (execution.execType != ExecType::Trade || execution.execId.empty()) {
+                continue;
+            }
+
+            FillEvent fill;
+            fill.clientOrderId = clientOrderId;
+            fill.symbol = symbol;
+            fill.fillId = execution.execId; /// same key as the WS feed → core dedups
+            fill.qty = execution.execQty;
+            fill.price = execution.execPrice;
+            fill.isMaker = execution.isMaker;
+            fillCB(fill);
+            ++reemitted;
+        }
+
+        if (reemitted > 0) {
+            spdlog::info("BybitGW: {} order {} gone at cancel — re-emitted {} execution(s) from REST (WS-gap safety; core dedups by execId, credits any missed fill)", symbol,
+                         clientOrderId, reemitted);
+        } else {
+            spdlog::debug("BybitGW: {} order {} gone at cancel — no executions (unfilled cancel)", symbol, clientOrderId);
         }
     }
 };
@@ -257,7 +281,7 @@ BybitExecutionGateway::BybitExecutionGateway(const std::string &apiKey, const st
     m_p->positionIdx = positionIdx;
     m_p->restClient = std::make_shared<RESTClient>(apiKey, apiSecret, env);
     m_p->privateStream = std::make_unique<WSPrivateStreamManager>(apiKey, apiSecret, env);
-    m_p->publicStream = std::make_unique<WSStreamManager>();
+    m_p->publicStream = std::make_unique<WSStreamManager>(env);
 
     m_p->privateStream->setLoggerCallback(&logForwarder);
     m_p->publicStream->setLoggerCallback(&logForwarder);
@@ -347,7 +371,14 @@ BybitExecutionGateway::BybitExecutionGateway(const std::string &apiKey, const st
     });
 }
 
-BybitExecutionGateway::~BybitExecutionGateway() = default;
+BybitExecutionGateway::~BybitExecutionGateway() {
+    /// Join the WS io threads FIRST. The default member order would destroy the
+    /// callbacks and the spec cache while those threads still deliver into them.
+    if (m_p) {
+        m_p->privateStream.reset();
+        m_p->publicStream.reset();
+    }
+}
 
 std::string BybitExecutionGateway::name() const { return "Bybit"; }
 
@@ -362,17 +393,20 @@ void BybitExecutionGateway::start() {
     m_p->privateStream->connect();
 
     /// The event feed must be live before any order op — a fill on an order
-    /// submitted pre-auth would be lost (Bybit does not replay).
+    /// submitted before the order/execution subscribes are acked would be lost
+    /// (Bybit does not replay). Authentication alone does not prove that.
     for (int i = 0; i < 100; ++i) {
-        if (m_p->privateStream->isAuthenticated()) {
-            spdlog::info("BybitExecutionGateway: private stream authenticated");
+        if (m_p->privateStream->isLive()) {
+            spdlog::info("BybitExecutionGateway: private stream live (authenticated, order + execution subscribed)");
             return;
         }
 
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
-    throw std::runtime_error("BybitExecutionGateway: private stream auth timeout (10 s)");
+    throw std::runtime_error(m_p->privateStream->isAuthenticated()
+                                     ? "BybitExecutionGateway: order/execution subscribe not acknowledged within 10 s"
+                                     : "BybitExecutionGateway: private stream auth timeout (10 s)");
 }
 
 InstrumentSpec BybitExecutionGateway::instrumentSpec(const std::string &symbol) {
