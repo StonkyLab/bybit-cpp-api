@@ -541,6 +541,14 @@ struct WebSocketSession::P {
                 }
 
                 inflightSubscribes.erase(it);
+            } else if (success && !inflightSubscribes.empty()) {
+                /// A success ack that does not echo our req_id (Bybit does echo it
+                /// on the public stream — verified 2026-10-25 — this guards the
+                /// private one): ops on one connection are acked in request order,
+                /// so it answers the oldest op in flight. Without this the topics
+                /// would never count as confirmed and the private stream would
+                /// never report live.
+                inflightSubscribes.erase(std::ranges::min_element(inflightSubscribes, {}, [](const auto &op) { return std::stoull(op.first); }));
             }
 
             if (!success && reqId.empty()) {
