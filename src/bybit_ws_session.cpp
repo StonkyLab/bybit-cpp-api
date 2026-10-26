@@ -526,35 +526,39 @@ struct WebSocketSession::P {
 
             std::lock_guard lk(locker);
 
-            if (const auto it = inflightSubscribes.find(reqId); it != inflightSubscribes.end()) {
-                if (!success) {
-                    /// V5 failure acks echo nothing but req_id — prune the whole
-                    /// op's topics so isSubscribed() reflects reality and the
-                    /// dead topics are not replayed on every reconnect.
-                    for (const auto &topic: it->second) {
-                        if (auto subIt = std::ranges::find(subscriptions, topic); subIt != subscriptions.end()) {
-                            subscriptions.erase(subIt);
-                        }
-                    }
+            /// Which op does this ack answer? Ours by req_id; an ack WITHOUT req_id
+            /// (Bybit documents such private-stream responses) answers the oldest
+            /// op in flight — ops on one connection are acked in request order.
+            /// Success and failure must be attributed alike: an unattributed
+            /// failure would leave its topics "subscribed" yet never confirmed,
+            /// and nothing would ever request them again.
+            auto it = inflightSubscribes.find(reqId);
+            if (it == inflightSubscribes.end() && reqId.empty() && !inflightSubscribes.empty()) {
+                it = std::ranges::min_element(inflightSubscribes, {}, [](const auto &op) { return std::stoull(op.first); });
+            }
 
-                    log(LogSeverity::Error, fmt::format("Bybit subscribe failed ({}): {}", fmt::join(it->second, ", "), retMsg));
+            if (it == inflightSubscribes.end()) {
+                if (!success) {
+                    log(LogSeverity::Error, fmt::format("Bybit subscribe failed (no op in flight to attribute it to): {}", retMsg));
+                }
+                return;
+            }
+
+            if (!success) {
+                /// Prune the whole op's topics: isSubscribed() then reflects
+                /// reality, the dead topics are not replayed on every reconnect,
+                /// and a caller that needs them (the private stream's isLive())
+                /// requests them again.
+                for (const auto &topic: it->second) {
+                    if (auto subIt = std::ranges::find(subscriptions, topic); subIt != subscriptions.end()) {
+                        subscriptions.erase(subIt);
+                    }
                 }
 
-                inflightSubscribes.erase(it);
-            } else if (success && !inflightSubscribes.empty()) {
-                /// A success ack that does not echo our req_id (Bybit does echo it
-                /// on the public stream — verified 2026-10-25 — this guards the
-                /// private one): ops on one connection are acked in request order,
-                /// so it answers the oldest op in flight. Without this the topics
-                /// would never count as confirmed and the private stream would
-                /// never report live.
-                inflightSubscribes.erase(std::ranges::min_element(inflightSubscribes, {}, [](const auto &op) { return std::stoull(op.first); }));
+                log(LogSeverity::Error, fmt::format("Bybit subscribe failed ({}): {}", fmt::join(it->second, ", "), retMsg));
             }
 
-            if (!success && reqId.empty()) {
-                log(LogSeverity::Error, fmt::format("Bybit API Error, operation: {}, message: {}", operation, retMsg));
-            }
-
+            inflightSubscribes.erase(it);
             return;
         }
 

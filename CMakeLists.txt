@@ -78,6 +78,12 @@ if (ENABLE_TESTS)
 
     add_executable(bybit_exec_probe test/exec_probe.cpp)
     target_link_libraries(bybit_exec_probe PRIVATE spdlog::spdlog_header_only bybit_api)
+
+    # Offline: compiles the session source itself to reach its internals — not linked against bybit_api.
+    add_executable(bybit_ws_session_ack_test test/ws_session_ack_test.cpp src/bybit_event_models.cpp)
+    target_include_directories(bybit_ws_session_ack_test PRIVATE include)
+    target_compile_options(bybit_ws_session_ack_test PRIVATE -fno-access-control) # reach WebSocketSession::P
+    target_link_libraries(bybit_ws_session_ack_test PRIVATE spdlog::spdlog_header_only stonky_common OpenSSL::Crypto OpenSSL::SSL nlohmann_json::nlohmann_json)
 endif ()
 
 # stonky_common is PUBLIC on purpose: the public headers of this library include stonky/interface and
